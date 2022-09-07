@@ -552,4 +552,4 @@ class TestClangDelta(unittest.TestCase):
                                    'Available transformation instances: 0')
 
     def test_class_template_to_class(self):
-        self.check_clang_delta('class-to-struct/test1.cc', '--transformation=class-template-to-class --counter=1')
+        self.check_clang_delta('class-template-to-class/test1.cc', '--transformation=class-template-to-class --counter=1')
