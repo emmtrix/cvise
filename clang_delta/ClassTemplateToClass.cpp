@@ -56,6 +56,20 @@ public:
 
   bool VisitTemplateSpecializationTypeLoc(TemplateSpecializationTypeLoc Loc);
 
+  bool VisitCXXMethodDecl(CXXMethodDecl* MD) {
+    if (auto DCT = MD->getParent()->getDescribedClassTemplate()) {
+      if (DCT->getCanonicalDecl() == ConsumerInstance->TheClassTemplateDecl) {
+        if (MD->getNumTemplateParameterLists() == 1) {
+          const TemplateParameterList* TPList = MD->getTemplateParameterList(0);
+          SourceLocation LocStart = MD->getBeginLoc();
+          ConsumerInstance->removeTemplateAndParameter(LocStart, TPList);
+        }
+      }
+    }
+
+    return __super::VisitCXXMethodDecl(MD);
+  }
+
 private:
 
   ClassTemplateToClass *ConsumerInstance;
