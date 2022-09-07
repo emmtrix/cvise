@@ -352,6 +352,12 @@ foreach(file IN LISTS SOURCE_FILES)
   configure_one_file(${file})
 endforeach()
 
+if (MSVC)
+  # Allow big object
+  add_definitions(/bigobj)
+endif (MSVC)
+
+
 # Add flags for compiling against LLVM.
 #
 add_definitions(${LLVM_DEFINITIONS})
