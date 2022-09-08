@@ -329,6 +329,10 @@ set(SOURCE_FILES
   "/tests/return-void/test6.output"
   "/tests/return-void/test7.cc"
   "/tests/return-void/test7.output"
+  "/tests/return-void/test8.cc"
+  "/tests/return-void/test8.output"
+  "/tests/return-void/test9.c"
+  "/tests/return-void/test9.output"
   "/tests/simplify-callexpr/macro.c"
   "/tests/simplify-callexpr/macro.output"
   "/tests/simplify-callexpr/test.c"
@@ -357,6 +361,8 @@ endforeach()
 if (MSVC)
   # Allow big object
   add_definitions(/bigobj)
+  # Enable parallel builds
+  add_definitions(/MP)
 endif (MSVC)
 
 

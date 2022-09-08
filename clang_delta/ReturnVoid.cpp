@@ -205,38 +205,12 @@ void ReturnVoid::HandleTranslationUnit(ASTContext &Ctx)
 
 bool RVASTVisitor::rewriteFuncDecl(FunctionDecl *FD)
 {
-  DeclarationNameInfo NameInfo = FD->getNameInfo();
-  SourceLocation NameInfoStartLoc = NameInfo.getBeginLoc();
+  SourceRange ReturnLoc = FD->getFunctionTypeLoc().getReturnLoc().getSourceRange();
+  if (ReturnLoc.isInvalid())
+    return true;
 
-  SourceRange FuncDefRange = FD->getSourceRange();
-  SourceLocation FuncStartLoc = FuncDefRange.getBegin();
-
-  if (FuncStartLoc.isMacroID()) {
-    FuncStartLoc = ConsumerInstance->SrcManager->getExpansionLoc(FuncStartLoc);
-  }
-
-  const char *FuncStartBuf =
-      ConsumerInstance->SrcManager->getCharacterData(FuncStartLoc);
-  const char *NameInfoStartBuf =
-      ConsumerInstance->SrcManager->getCharacterData(NameInfoStartLoc);
-  if (FuncStartBuf == NameInfoStartBuf) {
-    ConsumerInstance->Rewritten = true;
-    return !(ConsumerInstance->TheRewriter.InsertText(FuncStartLoc, "void "));
-  }
-
-  int Offset = NameInfoStartBuf - FuncStartBuf;
-
-  NameInfoStartBuf--;
-  while ((*NameInfoStartBuf == '(') || (*NameInfoStartBuf == ' ') ||
-         (*NameInfoStartBuf == '\t') || (*NameInfoStartBuf == '\n')) {
-    Offset--;
-    NameInfoStartBuf--;
-  }
-
-  TransAssert(Offset >= 0);
   ConsumerInstance->Rewritten = true;
-  return !(ConsumerInstance->TheRewriter.ReplaceText(FuncStartLoc, 
-                 Offset, "void "));
+  return !(ConsumerInstance->TheRewriter.ReplaceText(ReturnLoc, "void "));
 }
 
 bool RVASTVisitor::rewriteReturnStmt(ReturnStmt *RS)
