@@ -92,8 +92,6 @@ private:
 
   void addForwardDecl();
 
-  clang::PrintingPolicy PrintingPolicy;
-
   RecordDeclSet AvailableRecordDecls;
 
   LocPtrSet VisitedLocs;
@@ -109,6 +107,8 @@ private:
   std::string TheInstantiationString;
 
   std::string TheForwardDeclString;
+
+  clang::PrintingPolicy PrintingPolicy;
 
   // Unimplemented
   InstantiateTemplateParam();

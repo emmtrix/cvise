@@ -340,9 +340,6 @@ InstantiateTemplateParam::getTemplateArgumentString(const TemplateArgument &Arg,
                                                     std::string &ArgStr, 
                                                     std::string &ForwardStr)
 {
-  //PrintingPolicy.SuppressUnwrittenScope;
-  Arg.print(Context->getPrintingPolicy(), llvm::errs(), false);
-
   ArgStr = "";
   ForwardStr = "";
   if (Arg.getKind() != TemplateArgument::Type)
