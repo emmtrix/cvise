@@ -163,9 +163,6 @@ void InstantiateTemplateParam::Initialize(ASTContext &context)
   Transformation::Initialize(context);
   CollectionVisitor = new InstantiateTemplateParamASTVisitor(this);
   ParamRewriteVisitor = new InstantiateTemplateParamRewriteVisitor(this);
-
-  PrintingPolicy = context.getPrintingPolicy();
-  PrintingPolicy.SuppressUnwrittenScope = true; // Do not output (anonymous namespace)::
 }
 
 void InstantiateTemplateParam::HandleTranslationUnit(ASTContext &Ctx)
@@ -318,12 +315,12 @@ bool InstantiateTemplateParam::getTypeString(
   case Type::Record: {
     RecordDeclSet TempAvailableRecordDecls;
     getForwardDeclStr(Ty, ForwardStr, TempAvailableRecordDecls);
-    QT.getAsStringInternal(Str, PrintingPolicy);
+    QT.getAsStringInternal(Str, getPrintingPolicy());
     return true;
   }
 
   case Type::Builtin: {
-    QT.getAsStringInternal(Str, PrintingPolicy);
+    QT.getAsStringInternal(Str, getPrintingPolicy());
     return true;
   }
 
