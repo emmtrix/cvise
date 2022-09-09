@@ -1,0 +1,12 @@
+namespace {
+struct k {
+};
+}
+
+template <class h> struct G {
+  using ac = k;
+};
+
+int main() {
+  G<k> v;
+}
