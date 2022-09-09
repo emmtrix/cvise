@@ -163,6 +163,9 @@ void InstantiateTemplateParam::Initialize(ASTContext &context)
   Transformation::Initialize(context);
   CollectionVisitor = new InstantiateTemplateParamASTVisitor(this);
   ParamRewriteVisitor = new InstantiateTemplateParamRewriteVisitor(this);
+
+  PrintingPolicy = context.getPrintingPolicy();
+  PrintingPolicy.SuppressUnwrittenScope = true; // Do not output (anonymous namespace)::
 }
 
 void InstantiateTemplateParam::HandleTranslationUnit(ASTContext &Ctx)
@@ -315,12 +318,12 @@ bool InstantiateTemplateParam::getTypeString(
   case Type::Record: {
     RecordDeclSet TempAvailableRecordDecls;
     getForwardDeclStr(Ty, ForwardStr, TempAvailableRecordDecls);
-    QT.getAsStringInternal(Str, Context->getPrintingPolicy());
+    QT.getAsStringInternal(Str, PrintingPolicy);
     return true;
   }
 
   case Type::Builtin: {
-    QT.getAsStringInternal(Str, Context->getPrintingPolicy());
+    QT.getAsStringInternal(Str, PrintingPolicy);
     return true;
   }
 
@@ -337,6 +340,9 @@ InstantiateTemplateParam::getTemplateArgumentString(const TemplateArgument &Arg,
                                                     std::string &ArgStr, 
                                                     std::string &ForwardStr)
 {
+  //PrintingPolicy.SuppressUnwrittenScope;
+  Arg.print(Context->getPrintingPolicy(), llvm::errs(), false);
+
   ArgStr = "";
   ForwardStr = "";
   if (Arg.getKind() != TemplateArgument::Type)

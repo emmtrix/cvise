@@ -12,6 +12,7 @@
 #define INSTANTIATE_TEMPLATE_PARAM_H
 
 #include "llvm/ADT/SmallPtrSet.h"
+#include "clang/AST/PrettyPrinter.h"
 #include "Transformation.h"
 
 namespace clang {
@@ -43,7 +44,8 @@ public:
       TheParameter(NULL),
       TheTemplateDecl(NULL),
       TheInstantiationString(""),
-      TheForwardDeclString("")
+      TheForwardDeclString(""),
+      PrintingPolicy(clang::LangOptions())
   {}
 
   ~InstantiateTemplateParam();
@@ -89,6 +91,8 @@ private:
   void removeTemplateKeyword();
 
   void addForwardDecl();
+
+  clang::PrintingPolicy PrintingPolicy;
 
   RecordDeclSet AvailableRecordDecls;
 
