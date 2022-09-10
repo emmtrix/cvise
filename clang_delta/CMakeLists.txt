@@ -472,6 +472,8 @@ add_executable(clang_delta
   ParamToGlobal.h
   ParamToLocal.cpp
   ParamToLocal.h
+  MemberToGlobal.cpp
+  MemberToGlobal.h
   ReduceArrayDim.cpp
   ReduceArrayDim.h
   ReduceArraySize.cpp
