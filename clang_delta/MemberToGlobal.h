@@ -44,6 +44,8 @@ private:
 
   virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
 
+  llvm::StringRef GetText(clang::SourceRange range);
+
   std::vector<std::pair<clang::RecordDecl*, clang::Decl*>> ValidDecls;
 
   clang::Decl *TheDecl = nullptr;

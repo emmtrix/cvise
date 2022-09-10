@@ -65,6 +65,16 @@ void MemberToGlobal::Initialize(ASTContext &context)
   Transformation::Initialize(context);
 }
 
+StringRef MemberToGlobal::GetText(SourceRange replacementRange) {
+  std::pair<FileID, unsigned> Begin = SrcManager->getDecomposedLoc(replacementRange.getBegin());
+  std::pair<FileID, unsigned> End = SrcManager->getDecomposedLoc(replacementRange.getEnd());
+  if (Begin.first != End.first)
+    return "";
+
+  StringRef MB = SrcManager->getBufferData(Begin.first);
+  return MB.substr(Begin.second, End.second - Begin.second + 1);
+}
+
 void MemberToGlobal::HandleTranslationUnit(ASTContext &Ctx)
 {
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
@@ -86,7 +96,9 @@ void MemberToGlobal::HandleTranslationUnit(ASTContext &Ctx)
   auto RecordBegin = TheRecordDecl->getSourceRange().getBegin();
   auto BeginLoc = TheDecl->getSourceRange().getBegin();
   auto EndLoc = RewriteHelper->getEndLocationUntil(TheDecl->getSourceRange().getEnd(), ';');
-  TheRewriter.ReplaceText(SourceRange(RecordBegin, RecordBegin), SourceRange(BeginLoc, EndLoc));
+
+  std::string Text = GetText(SourceRange(BeginLoc, EndLoc)).str();
+  TheRewriter.InsertTextBefore(RecordBegin, Text + "\n");
   TheRewriter.RemoveText(SourceRange(BeginLoc, EndLoc));
 
   //RewriteVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
