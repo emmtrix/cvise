@@ -44,7 +44,19 @@ private:
 
   virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
 
+  bool isValidDecl(clang::RecordDecl* FD, clang::Decl* D);
+
   llvm::StringRef GetText(clang::SourceRange range);
+
+  void removeRecordQualifier(const clang::NestedNameSpecifierLoc& NNSLoc);
+
+  bool isTheDecl(clang::Decl *D) {
+    return TheDecl->getCanonicalDecl() == D->getCanonicalDecl();
+  }
+
+  bool isTheRecordDecl(clang::Decl *D) {
+    return TheRecordDecl->getCanonicalDecl() == D->getCanonicalDecl();
+  }
 
   std::vector<std::pair<clang::RecordDecl*, clang::Decl*>> ValidDecls;
 
