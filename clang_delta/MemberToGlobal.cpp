@@ -56,7 +56,7 @@ public:
   { }
 
   bool VisitMemberExpr(MemberExpr* ME) {
-    if (ConsumerInstance->isTheDecl(ME->getMemberDecl())) {
+    if (!ME->isImplicitAccess() && ConsumerInstance->isTheDecl(ME->getMemberDecl())) {
       ConsumerInstance->TheRewriter.ReplaceText(ME->getOperatorLoc(), ",");
       ConsumerInstance->TheRewriter.InsertTextBefore(ME->getSourceRange().getBegin(), "(");
       ConsumerInstance->TheRewriter.InsertTextAfterToken(ME->getSourceRange().getEnd(), ")");
