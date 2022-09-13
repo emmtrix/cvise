@@ -534,6 +534,8 @@ add_executable(clang_delta
   RenameClass.h
   RenameFun.cpp
   RenameFun.h
+  RenameOperator.cpp
+  RenameOperator.h
   RenameParam.cpp
   RenameParam.h
   RenameVar.cpp
