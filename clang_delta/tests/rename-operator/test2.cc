@@ -3,20 +3,20 @@ class test {
 public:
 };
 
-test op1 (test&, test);
-test op2 (test&);
-test op3 (test&);
-test op4 (test&, int);
+test operator + (test&, test);
+test operator ~ (test&);
+test operator ++ (test&);
+test operator ++ (test&, int);
 
 void func() {
 	test t1,t2,t3;
 	
-	t3 = op1(t1 , t2);
-	t3 = op2(t1);
+	t3 = t1 + t2;
+	t3 = ~t1;
 
-	op3(t3);
-	op4(t3,0);
+	++t3;
+	t3++;
 
-	op2(t3);
-	&op2;
+	operator ~(t3);
+	&operator~;
 }

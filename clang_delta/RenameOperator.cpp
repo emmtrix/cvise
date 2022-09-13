@@ -186,7 +186,9 @@ void RenameOperator::HandleTranslationUnit(ASTContext &Ctx)
 
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 
-  ValidInstanceNum = FunctionList.size() + 1;
+  ValidInstanceNum = 0;
+  if (FunctionList.size())
+    ValidInstanceNum = FunctionList.size() + 1;
 
   if (QueryInstanceOnly) {
     return;
