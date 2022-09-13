@@ -19,6 +19,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Lex/Lexer.h"
 
 #include "TransformationManager.h"
 
@@ -26,7 +27,8 @@ using namespace clang;
 
 static const char *DescriptionMsg =
 "A pass to rename operator functions (e.g. operator +) to regular function names op1, op2, ... \
-Relevant operators are replaced by function calls, e.g. a + b => a.op1(b). \n";
+Relevant operators are replaced by function calls, e.g. a + b => a.op1(b). \
+The pass renames all functions with --count=1 and single functions with >= 2.\n";
 
 static RegisterTransformation<RenameOperator>
          Trans("rename-operator", DescriptionMsg);
@@ -81,7 +83,7 @@ public:
 
   bool VisitFunctionDecl(FunctionDecl* FD) {
     if (auto NewName = GetNewName(FD)) {
-      ConsumerInstance->RewriteHelper->replaceFunctionDeclName(FD, *NewName);
+      ConsumerInstance->TheRewriter.ReplaceText(FD->getNameInfo().getSourceRange(), *NewName);
     }
 
     return true;
@@ -91,12 +93,17 @@ public:
     if (auto* MD = dyn_cast<CXXMethodDecl>(OCE->getCalleeDecl())) {
       if (auto NewName = GetNewName(MD)) {
         std::string OpSpelling = getOperatorSpelling(OCE->getOperator());
-        if (OCE->getNumArgs() == 2) {
-          ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), OpSpelling.size(), "." + *NewName + "(");
-          ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(1)->getEndLoc(), ")");
-        } else if (OCE->getNumArgs() == 1) {
+        if (OCE->getOperator() == OO_Call || OCE->getOperator() == OO_Subscript) {
+          auto L1 = Lexer::getLocForEndOfToken(OCE->getArg(0)->getEndLoc(), 0, *ConsumerInstance->SrcManager, ConsumerInstance->Context->getLangOpts());
+          auto L2 = OCE->getArg(1)->getBeginLoc().getLocWithOffset(-1);
+          ConsumerInstance->TheRewriter.ReplaceText(SourceRange(L1, L2), "." + *NewName + "(");
+          ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), 1, ")");
+        } else if (OCE->getNumArgs() == 1 || OCE->getOperator() == OO_PlusPlus || OCE->getOperator() == OO_MinusMinus) {
           ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), OpSpelling.size(), "");
           ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(0)->getEndLoc(), "." + *NewName + "()");
+        } else if (OCE->getNumArgs() == 2) {
+          ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), OpSpelling.size(), "." + *NewName + "(");
+          ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(1)->getEndLoc(), ")");
         }
       }
     }
@@ -166,7 +173,7 @@ void RenameOperator::HandleTranslationUnit(ASTContext &Ctx)
 
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 
-  ValidInstanceNum = FunctionList.size();
+  ValidInstanceNum = FunctionList.size() + 1;
 
   if (QueryInstanceOnly) {
     return;
@@ -177,8 +184,13 @@ void RenameOperator::HandleTranslationUnit(ASTContext &Ctx)
     return;
   }
 
-  auto Fun = FunctionList[TransformationCounter - 1];
-  RenameFunc[Fun] = getNextFuncName();
+  if (TransformationCounter == 1) {
+    for (auto F : FunctionList)
+      RenameFunc[F] = getNextFuncName();
+  } else {
+    auto Fun = FunctionList[TransformationCounter - 2];
+    RenameFunc[Fun] = getNextFuncName();
+  }
 
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
 
