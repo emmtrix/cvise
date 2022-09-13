@@ -90,8 +90,8 @@ public:
   }
 
   bool TraverseCXXOperatorCallExpr(CXXOperatorCallExpr* OCE) {
-    if (auto* FD = dyn_cast<FunctionDecl>(OCE->getCalleeDecl())) {
-      if (auto NewName = GetNewName(FD)) {
+    if (auto* MD = dyn_cast<CXXMethodDecl>(OCE->getCalleeDecl())) {
+      if (auto NewName = GetNewName(MD)) {
         std::string OpSpelling = getOperatorSpelling(OCE->getOperator());
         if (OCE->getOperator() == OO_Call || OCE->getOperator() == OO_Subscript) {
           auto L1 = Lexer::getLocForEndOfToken(OCE->getArg(0)->getEndLoc(), 0, *ConsumerInstance->SrcManager, ConsumerInstance->Context->getLangOpts());
@@ -100,9 +100,22 @@ public:
           ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), 1, ")");
         } else if (OCE->getNumArgs() == 1 || OCE->getOperator() == OO_PlusPlus || OCE->getOperator() == OO_MinusMinus) {
           ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), OpSpelling.size(), "");
-          ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(0)->getEndLoc(), "." + *NewName + "()");
+          ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(0)->getEndLoc(), "." + *NewName + (OCE->getNumArgs() == 2 ? "(0)" : "()"));
         } else if (OCE->getNumArgs() == 2) {
           ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), OpSpelling.size(), "." + *NewName + "(");
+          ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(1)->getEndLoc(), ")");
+        }
+      }
+    } else if (auto* FD = dyn_cast<FunctionDecl>(OCE->getCalleeDecl())) {
+      if (auto NewName = GetNewName(FD)) {
+        std::string OpSpelling = getOperatorSpelling(OCE->getOperator());
+        if (OCE->getNumArgs() == 1 || OCE->getOperator() == OO_PlusPlus || OCE->getOperator() == OO_MinusMinus) {
+          ConsumerInstance->TheRewriter.InsertTextBefore(OCE->getArg(0)->getBeginLoc(), *NewName + "(");
+          ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), OpSpelling.size(), "");
+          ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(0)->getEndLoc(), OCE->getNumArgs() == 2 ? ",0)" : ")");
+        } else if (OCE->getNumArgs() == 2) {
+          ConsumerInstance->TheRewriter.InsertTextBefore(OCE->getArg(0)->getBeginLoc(), *NewName + "(");
+          ConsumerInstance->TheRewriter.ReplaceText(OCE->getOperatorLoc(), OpSpelling.size(), ",");
           ConsumerInstance->TheRewriter.InsertTextAfterToken(OCE->getArg(1)->getEndLoc(), ")");
         }
       }

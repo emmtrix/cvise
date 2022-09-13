@@ -1,4 +1,3 @@
-
 class test {
 public:
 	test operator + (test);
@@ -14,9 +13,8 @@ public:
 };
 
 test test::operator ~ () {
+	return test();
 }
-
-test operator - (test, test);
 
 void func() {
 	test t1,t2,t3;
@@ -35,6 +33,4 @@ void func() {
 
 	t3.operator ~();
 	&test::operator~;
-
-	t3 = t1 - t2;
-}
+}  

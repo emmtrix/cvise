@@ -14,9 +14,8 @@ public:
 };
 
 test test::op2 () {
+	return test();
 }
-
-test op9 (test, test);
 
 void func() {
 	test t1,t2,t3;
@@ -31,10 +30,8 @@ void func() {
 	t1.op7(3, 4, 5 );
 
 	t3.op3();
-	t3.op4();
+	t3.op4(0);
 
 	t3.op2();
 	&test::op2;
-
-	t3 = t1 .op9( t2);
 }
