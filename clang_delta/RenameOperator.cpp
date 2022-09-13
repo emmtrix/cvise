@@ -42,7 +42,7 @@ public:
     : ConsumerInstance(Instance)
   { }
 
-  bool RenameOperator::CollectionVisitor::VisitFunctionDecl(FunctionDecl *FD)
+  bool VisitFunctionDecl(FunctionDecl *FD)
   {
     if (!FD->isOverloadedOperator()) {
       return true;
