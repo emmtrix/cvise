@@ -169,7 +169,7 @@ std::string RenameOperator::getNextFuncName() {
 
 void RenameOperator::HandleTranslationUnit(ASTContext &Ctx)
 {
-  Ctx.getTranslationUnitDecl()->dump();
+  //Ctx.getTranslationUnitDecl()->dump();
 
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 

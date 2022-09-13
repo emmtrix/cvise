@@ -296,7 +296,7 @@ set(SOURCE_FILES
   "/tests/rename-fun/test1.output"
   "/tests/rename-fun/multi.c"
   "/tests/rename-fun/multi.output"
-  "/tests/rename-operator/test1.c"
+  "/tests/rename-operator/test1.cc"
   "/tests/rename-operator/test1.output"
   "/tests/rename-param/invalid.c"
   "/tests/rename-param/invalid.output"
