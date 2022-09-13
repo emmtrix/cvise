@@ -90,8 +90,8 @@ public:
   }
 
   bool TraverseCXXOperatorCallExpr(CXXOperatorCallExpr* OCE) {
-    if (auto* MD = dyn_cast<CXXMethodDecl>(OCE->getCalleeDecl())) {
-      if (auto NewName = GetNewName(MD)) {
+    if (auto* FD = dyn_cast<FunctionDecl>(OCE->getCalleeDecl())) {
+      if (auto NewName = GetNewName(FD)) {
         std::string OpSpelling = getOperatorSpelling(OCE->getOperator());
         if (OCE->getOperator() == OO_Call || OCE->getOperator() == OO_Subscript) {
           auto L1 = Lexer::getLocForEndOfToken(OCE->getArg(0)->getEndLoc(), 0, *ConsumerInstance->SrcManager, ConsumerInstance->Context->getLangOpts());
