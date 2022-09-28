@@ -387,7 +387,6 @@ if (MSVC)
   add_definitions(/MP)
 endif (MSVC)
 
-
 # Add flags for compiling against LLVM.
 #
 add_definitions(${LLVM_DEFINITIONS})
