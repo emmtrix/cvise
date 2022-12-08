@@ -16,17 +16,20 @@ class ClangBinarySearchPass(AbstractPass):
     def detect_best_standard(self, test_case):
         best = None
         best_count = -1
-        for std in ('c++98', 'c++11', 'c++14', 'c++17', 'c++20'):
+        for std in ('c++98', 'c++11', 'c++14', 'c++17', 'c++20', 'c++2b'):
             self.clang_delta_std = std
             start = time.monotonic()
             instances = self.count_instances(test_case)
             took = time.monotonic() - start
 
-            if instances > best_count:
+            # prefer newer standard if the # of instances is equal
+            if instances >= best_count:
                 best = std
                 best_count = instances
             logging.debug('available transformation opportunities for %s: %d, took: %.2f s' % (std, instances, took))
         logging.info('using C++ standard: %s with %d transformation opportunities' % (best, best_count))
+        # Use the best standard option
+        self.clang_delta_std = best
 
     def new(self, test_case, _=None):
         if not self.user_clang_delta_std:
@@ -46,9 +49,9 @@ class ClangBinarySearchPass(AbstractPass):
         return state
 
     def count_instances(self, test_case):
-        args = [self.external_programs['clang_delta'], '--query-instances={}'.format(self.arg)]
+        args = [self.external_programs['clang_delta'], f'--query-instances={self.arg}']
         if self.clang_delta_std:
-            args.append('--std={}'.format(self.clang_delta_std))
+            args.append(f'--std={self.clang_delta_std}')
         if self.clang_delta_preserve_routine:
             args.append(f'--preserve-routine="{self.clang_delta_preserve_routine}"')
         cmd = args + [test_case]
@@ -79,14 +82,14 @@ class ClangBinarySearchPass(AbstractPass):
                 pass
 
     def transform(self, test_case, state, process_event_notifier):
-        logging.debug('TRANSFORM: index = {}, chunk = {}, instances = {}'.format(state.index, state.chunk, state.instances))
+        logging.debug(f'TRANSFORM: index = {state.index}, chunk = {state.chunk}, instances = {state.instances}')
 
         tmp = os.path.dirname(test_case)
         with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=tmp) as tmp_file:
-            args = ['--transformation={}'.format(self.arg), '--counter={}'.format(state.index + 1), '--to-counter={}'.format(state.end()),
+            args = [f'--transformation={self.arg}', f'--counter={state.index + 1}', f'--to-counter={state.end()}',
                     '--warn-on-counter-out-of-bounds', '--report-instances-count']
             if self.clang_delta_std:
-                args.append('--std={}'.format(self.clang_delta_std))
+                args.append(f'--std={self.clang_delta_std}')
             if self.clang_delta_preserve_routine:
                 args.append(f'--preserve-routine="{self.clang_delta_preserve_routine}"')
             cmd = [self.external_programs['clang_delta']] + args + [test_case]

@@ -122,11 +122,11 @@ check_include_file("unistd.h"		HAVE_UNISTD_H)
 set(cvise_PACKAGE             "cvise")
 set(cvise_PACKAGE_BUGREPORT   "https://github.com/marxin/cvise/issues")
 set(cvise_PACKAGE_NAME        "cvise")
-set(cvise_PACKAGE_STRING      "cvise 2.5.0")
+set(cvise_PACKAGE_STRING      "cvise 2.6.0")
 set(cvise_PACKAGE_TARNAME     "cvise")
 set(cvise_PACKAGE_URL         "https://github.com/marxin/cvise/")
-set(cvise_PACKAGE_VERSION     "2.5.0")
-set(cvise_VERSION             "2.5.0")
+set(cvise_PACKAGE_VERSION     "2.6.0")
+set(cvise_VERSION             "2.6.0")
 set(cvise_LLVM_VERSION        "${LLVM_PACKAGE_VERSION}")
 
 configure_file("cmake_config.h.in" "${PROJECT_BINARY_DIR}/config.h")
@@ -144,10 +144,10 @@ check_cxx_compiler_flag(
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  # XXX figure out how to get "-std=c++14 -fno-rtti" from LLVM.  That's how we
+  # XXX figure out how to get "-std=c++17 -fno-rtti" from LLVM.  That's how we
   # get those options in the Automake path...
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -Wno-error=maybe-uninitialized")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fno-rtti -fno-strict-aliasing -Wall -Wextra -Wno-unused-parameter -Werror -Wno-error=maybe-uninitialized")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-rtti -fno-strict-aliasing -Wall -Wextra -Wno-unused-parameter -Werror -Wno-error=maybe-uninitialized -Wno-error=mismatched-new-delete")
   if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
   endif()

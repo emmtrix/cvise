@@ -1,4 +1,4 @@
-name: Build
+name: Build openSUSE
 
 on:
   push:
@@ -29,6 +29,7 @@ jobs:
           - llvm: 9
             build-type: DEBUG
             docker: opensuse/leap
+            env: CC=gcc-11 CXX=g++-11
       fail-fast: false
 
     container:
@@ -36,27 +37,32 @@ jobs:
 
     steps:
     - run: zypper -n install
-        binutils clang${{ matrix.llvm }}-devel cmake flex gcc-c++ llvm${{ matrix.llvm }}-devel python3-Pebble python3-pytest unifdef python3-psutil curl git python3-chardet
+        binutils clang${{ matrix.llvm }}-devel cmake flex gcc-c++ llvm${{ matrix.llvm }}-devel
+        python3-Pebble python3-pytest unifdef python3-psutil curl git python3-chardet findutils
         python3-flake8
         python3-flake8-builtins
         python3-flake8-bugbear
         python3-flake8-import-order
         python3-flake8-quotes
-    - run: zypper -n install python3-pip python3-flake8-comprehensions python3 sqlite-devel
+        python3-pip
+    - run: zypper -n install gcc11-c++
+      if: matrix.docker == 'opensuse/leap'
+    - run: zypper -n install python3-flake8-comprehensions sqlite-devel python3
       if: matrix.docker == 'opensuse/tumbleweed'
     - run: pip install pytest-cov
       if: matrix.docker == 'opensuse/tumbleweed'
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - run: nproc
     - name: build
       run: |
             mkdir objdir
             cd objdir
-            cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} -DCMAKE_CXX_FLAGS=${{ matrix.extra-flags }}
+            ${{ matrix.env }} cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} -DCMAKE_CXX_FLAGS=${{ matrix.extra-flags }}
             make -j`nproc` VERBOSE=1
     - name: flake8
       run: flake8
+    - run: pip install pyupgrade 
+    - run: find . -name '*.py' | xargs pyupgrade --py36-plus
     - name: test
-      run: |
-            cd objdir
-            pytest
+      run: pytest
+      working-directory: objdir

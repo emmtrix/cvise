@@ -842,8 +842,13 @@ const CXXRecordDecl *Transformation::getBaseDeclFromType(const Type *Ty)
   }
 
   case Type::TypeOf: {
-    return getBaseDeclFromType(
-      dyn_cast<TypeOfType>(Ty)->getUnderlyingType().getTypePtr());
+    return getBaseDeclFromType(dyn_cast<TypeOfType>(Ty)
+#if LLVM_VERSION_MAJOR >= 16
+      ->getUnmodifiedType()
+#else
+      ->getUnderlyingType()
+#endif
+      .getTypePtr());
   }
 
   default:
@@ -1038,8 +1043,8 @@ bool Transformation::getDependentNameTypeString(
   const TemplateArgument *Args = NULL;
   if (const TemplateSpecializationType *TST =
       Ty->getAs<TemplateSpecializationType>()) {
-    NumArgs = TST->getNumArgs();
-    Args = TST->getArgs();
+    NumArgs = TST->template_arguments().size();
+    Args = TST->template_arguments().data();
   }
   return getTypedefString(IdInfo->getName(),
            BaseDef, Args, NumArgs, Str, Typename);
