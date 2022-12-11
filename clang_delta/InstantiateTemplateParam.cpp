@@ -302,6 +302,8 @@ bool InstantiateTemplateParam::getTypeString(
 {
   llvm::raw_string_ostream Strm(Str);
   QT.print(Strm, getPrintingPolicy(), ForwardStr);
+  if (Str == "nullptr_t")
+    Str = "decltype(nullptr)";
   return true;
 }
 
