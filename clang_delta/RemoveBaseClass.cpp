@@ -139,6 +139,8 @@ void RemoveBaseClass::handleOneCXXRecordDecl(const CXXRecordDecl *CXXRD)
   for (const CXXBaseSpecifier& BS : CXXRD->bases()) {
     auto* Base = BS.getType()->getAsCXXRecordDecl();
 
+    if (Base == nullptr)
+      continue;
     if (getNumExplicitDecls(Base) > MaxNumDecls)
       continue;
     if (isInIncludedFile(Base))
