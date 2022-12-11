@@ -201,12 +201,15 @@ void InstantiateTemplateParam::removeTemplateKeyword()
   if (dyn_cast<ClassTemplateDecl>(TheTemplateDecl))
     return;
   TemplateParameterList *TPList = TheTemplateDecl->getTemplateParameters();
-  if (TPList->size() != 1)
-    return;
-  const NamedDecl *ND = TPList->getParam(0); (void)ND;
-  TransAssert((ND == TheParameter) && "Invalid template parameter!");
-  TheRewriter.RemoveText(SourceRange(TPList->getTemplateLoc(),
-                                     TPList->getRAngleLoc()));
+  if (TPList->size() == 1) {
+    const NamedDecl* ND = TPList->getParam(0); (void)ND;
+    TransAssert((ND == TheParameter) && "Invalid template parameter!");
+    TheRewriter.RemoveText(SourceRange(TPList->getTemplateLoc(),
+        TPList->getRAngleLoc()));
+  } else if (auto* TTPD = dyn_cast<TemplateTypeParmDecl>(TheParameter)) {
+    if (!TTPD->hasDefaultArgument())
+      TheRewriter.InsertTextAfterToken(TTPD->getEndLoc(), "=int");
+  }
 }
 
 void InstantiateTemplateParam::addForwardDecl()
