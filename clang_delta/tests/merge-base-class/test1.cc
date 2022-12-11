@@ -7,8 +7,8 @@ struct c1 {
 	c1(int x);
 };
 
-struct c2  {
-	c2()  {
+struct c2 : public c1 {
+	c2() :  c1(5) {
 	}
 	
 };
