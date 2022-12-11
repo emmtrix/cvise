@@ -23,8 +23,11 @@
 using namespace clang;
 using namespace clang_delta_common_visitor;
 
-static const char *DescriptionMsg = 
-"This pass removes a base class from its class hierarchy if \n\
+static const char *DescriptionMsgRemove = 
+"This pass removes a base class from a derived class. \n";
+
+static const char* DescriptionMsgMerge =
+"This pass merges a base class into a derived class if \n\
   * it has less than or equal to 5 declarations. \n\
 All its declarations will be moved into one of its subclasses, \
 and all references to this base class will be replaced with \
@@ -35,7 +38,9 @@ the corresponding subclass. \n";
 // when multi-inheritance is involved.
 
 static RegisterTransformation<RemoveBaseClass>
-         Trans("remove-base-class", DescriptionMsg);
+         TransRemove("remove-base-class", DescriptionMsgRemove);
+static RegisterTransformation<RemoveBaseClass>
+         TransMerge("merge-base-class", DescriptionMsgMerge);
 
 class RemoveBaseClassBaseVisitor : public 
   RecursiveASTVisitor<RemoveBaseClassBaseVisitor> {
@@ -58,20 +63,6 @@ bool RemoveBaseClassBaseVisitor::VisitCXXRecordDecl(
   ConsumerInstance->handleOneCXXRecordDecl(CXXRD);
   return true;
 }
-
-class RemoveBaseClassRewriteVisitor : public
-  CommonRenameClassRewriteVisitor<RemoveBaseClassRewriteVisitor> 
-{
-public:
-  RemoveBaseClassRewriteVisitor(Transformation *Instance,
-                                Rewriter *RT,
-                                RewriteUtils *Helper,
-                                const CXXRecordDecl *CXXRD,
-                                const std::string &Name)
-    : CommonRenameClassRewriteVisitor<RemoveBaseClassRewriteVisitor>
-      (Instance, RT, Helper, CXXRD, Name)
-  { }
-};
 
 void RemoveBaseClass::Initialize(ASTContext &context) 
 {
@@ -101,13 +92,6 @@ void RemoveBaseClass::HandleTranslationUnit(ASTContext &Ctx)
   TransAssert(TheDerivedClass && "TheDerivedClass is NULL!");
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
 
-  RewriteVisitor = 
-    new RemoveBaseClassRewriteVisitor(this, &TheRewriter, RewriteHelper,
-                                      TheBaseClass->getCanonicalDecl(),
-                                      TheDerivedClass->getNameAsString());
-
-  TransAssert(RewriteVisitor && "NULL RewriteVisitor!");
-  RewriteVisitor->TraverseDecl(Ctx.getTranslationUnitDecl());
   doRewrite();
 
   if (Ctx.getDiagnostics().hasErrorOccurred() ||
@@ -141,7 +125,7 @@ void RemoveBaseClass::handleOneCXXRecordDecl(const CXXRecordDecl *CXXRD)
 
     if (Base == nullptr)
       continue;
-    if (getNumExplicitDecls(Base) > MaxNumDecls)
+    if (Merge && getNumExplicitDecls(Base) > MaxNumDecls)
       continue;
     if (isInIncludedFile(Base))
       continue;
@@ -157,13 +141,15 @@ void RemoveBaseClass::handleOneCXXRecordDecl(const CXXRecordDecl *CXXRD)
 
 void RemoveBaseClass::doRewrite(void)
 {
-  copyBaseClassDecls();
+  if (Merge)
+    copyBaseClassDecls();
   removeBaseSpecifier();
-  RewriteHelper->removeClassDecls(TheBaseClass);
+  if (Merge)
+    RewriteHelper->removeClassDecls(TheBaseClass);
 
   // ISSUE: I didn't handle Base initializer in a Ctor's initlist.
   //        * keeping it untouched is wrong, because delegating constructors 
-  //        are only valie in c++11
+  //        are only valid in c++11
   //        * naively removing the base initializer doesn't work in some cases,
   //        e.g., 
   //        class A { 
@@ -223,6 +209,10 @@ bool RemoveBaseClass::isTheBaseClass(const CXXBaseSpecifier &Specifier)
   const Type *Ty = TheBaseClass->getTypeForDecl();
   return Context->hasSameType(Specifier.getType(), 
                               Ty->getCanonicalTypeInternal());
+}
+
+RemoveBaseClass::RemoveBaseClass(const char* TransName, const char* Desc) : Transformation(TransName, Desc) {
+    Merge = (TransName == std::string("merge-base-class"));
 }
 
 void RemoveBaseClass::removeBaseSpecifier(void)
@@ -288,16 +278,17 @@ void RemoveBaseClass::rewriteOneCtor(const CXXConstructorDecl *Ctor)
 
 void RemoveBaseClass::removeBaseInitializer(void)
 {
-  for (CXXRecordDecl::ctor_iterator I = TheDerivedClass->ctor_begin(),
-       E = TheDerivedClass->ctor_end(); I != E; ++I) {
-    if ((*I)->isThisDeclarationADefinition() && !(*I)->isDefaulted())
-      rewriteOneCtor(*I);
+  for (Decl* D : TheDerivedClass->decls()) {
+    if (auto* FTD = dyn_cast<FunctionTemplateDecl>(D))
+      D =FTD->getTemplatedDecl();
+    if (auto* Ctor = dyn_cast<CXXConstructorDecl>(D))
+      if (Ctor->isThisDeclarationADefinition() && !Ctor->isDefaulted())
+        rewriteOneCtor(Ctor);
   }
 }
 
 RemoveBaseClass::~RemoveBaseClass(void)
 {
   delete CollectionVisitor;
-  delete RewriteVisitor;
 }
 

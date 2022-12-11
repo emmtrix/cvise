@@ -22,20 +22,12 @@ namespace clang {
 }
 
 class RemoveBaseClassBaseVisitor;
-class RemoveBaseClassRewriteVisitor;
 
 class RemoveBaseClass : public Transformation {
 friend class RemoveBaseClassBaseVisitor;
 
 public:
-  RemoveBaseClass(const char *TransName, const char *Desc)
-    : Transformation(TransName, Desc),
-      CollectionVisitor(NULL),
-      RewriteVisitor(NULL),
-      TheBaseClass(NULL),
-      TheDerivedClass(NULL),
-      MaxNumDecls(5)
-  { }
+  RemoveBaseClass(const char *TransName, const char *Desc);
 
   ~RemoveBaseClass(void);
 
@@ -63,15 +55,15 @@ private:
 
   bool isTheBaseClass(const clang::CXXBaseSpecifier &Specifier);
 
-  RemoveBaseClassBaseVisitor *CollectionVisitor;
+  RemoveBaseClassBaseVisitor *CollectionVisitor = nullptr;
 
-  RemoveBaseClassRewriteVisitor *RewriteVisitor;
+  const clang::CXXRecordDecl *TheBaseClass = nullptr;
 
-  const clang::CXXRecordDecl *TheBaseClass;
+  const clang::CXXRecordDecl *TheDerivedClass = nullptr;
 
-  const clang::CXXRecordDecl *TheDerivedClass;
+  const unsigned MaxNumDecls = 5;
 
-  const unsigned MaxNumDecls;
+  bool Merge;
 
   // Unimplemented
   RemoveBaseClass(void);
