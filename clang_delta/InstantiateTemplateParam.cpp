@@ -297,39 +297,9 @@ void InstantiateTemplateParam::getForwardDeclStr(
 bool InstantiateTemplateParam::getTypeString(
        const QualType &QT, std::string &Str, std::string &ForwardStr)
 {
-  const Type *Ty = QT.getTypePtr();
-  Type::TypeClass TC = Ty->getTypeClass();
-
-  switch (TC) {
-  case Type::Elaborated: {
-    const ElaboratedType *ETy = dyn_cast<ElaboratedType>(Ty);
-    return getTypeString(ETy->getNamedType(), Str, ForwardStr);
-  }
-
-  case Type::Typedef: {
-    const TypedefType *TdefTy = dyn_cast<TypedefType>(Ty);
-    const TypedefNameDecl *TdefD = TdefTy->getDecl();
-    return getTypeString(TdefD->getUnderlyingType(), Str, ForwardStr);
-  }
-
-  case Type::Record: {
-    RecordDeclSet TempAvailableRecordDecls;
-    getForwardDeclStr(Ty, ForwardStr, TempAvailableRecordDecls);
-    QT.getAsStringInternal(Str, getPrintingPolicy());
-    return true;
-  }
-
-  case Type::Builtin: {
-    QT.getAsStringInternal(Str, getPrintingPolicy());
-    return true;
-  }
-
-  default:
-    return false;
-  }
-
-  TransAssert(0 && "Unreachable code!");
-  return false;
+  llvm::raw_string_ostream Strm(Str);
+  QT.print(Strm, getPrintingPolicy(), ForwardStr);
+  return true;
 }
 
 bool 
