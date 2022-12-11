@@ -63,10 +63,6 @@ private:
 
   bool isTheBaseClass(const clang::CXXBaseSpecifier &Specifier);
 
-  CXXRecordDeclSet VisitedCXXRecordDecls;
-
-  CXXRecordDeclSet AllBaseClasses;
-
   RemoveBaseClassBaseVisitor *CollectionVisitor;
 
   RemoveBaseClassRewriteVisitor *RewriteVisitor;
