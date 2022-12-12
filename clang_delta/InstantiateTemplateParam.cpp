@@ -292,8 +292,6 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
   if (isInIncludedFile(D))
     return;
 
-  NamedDecl *ND = D->getTemplatedDecl();
-
   unsigned NumArgs = ArgList.size(); (void)NumArgs;
   unsigned Idx = -1;
   TemplateParameterList *TPList = D->getTemplateParameters();
