@@ -30,43 +30,6 @@ only once. \n";
 static RegisterTransformation<InstantiateTemplateParam>
          Trans("instantiate-template-param", DescriptionMsg);
 
-namespace {
-
-typedef llvm::SmallPtrSet<const NamedDecl *, 8> TemplateParameterSet;
-
-class TemplateParameterVisitor : public 
-  RecursiveASTVisitor<TemplateParameterVisitor> {
-
-public:
-  explicit TemplateParameterVisitor(TemplateParameterSet &Params)
-             : UsedParameters(Params) 
-  { }
-
-  ~TemplateParameterVisitor() { };
-
-  bool VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc Loc);
-
-private:
-
-  TemplateParameterSet &UsedParameters;
-};
-
-// seems clang can't detect the T in T::* in the following case:
-// struct B;
-// template <typename T> struct C {
-//   C(void (T::*)()) { }
-// };
-// struct D { C<B> m; };
-bool TemplateParameterVisitor::VisitTemplateTypeParmTypeLoc(
-       TemplateTypeParmTypeLoc Loc)
-{
-  const TemplateTypeParmDecl *D = Loc.getDecl();
-  UsedParameters.insert(D);
-  return true;
-}
-
-} // end anonymous namespace
-
 class InstantiateTemplateParamASTVisitor : public 
   RecursiveASTVisitor<InstantiateTemplateParamASTVisitor> {
 
@@ -97,7 +60,7 @@ bool InstantiateTemplateParamASTVisitor::VisitRecordDecl(RecordDecl *D)
 bool InstantiateTemplateParamASTVisitor::VisitClassTemplateDecl(
        ClassTemplateDecl *D)
 {
-  if (D->isThisDeclarationADefinition())
+  if (D->isFirstDecl())
     ConsumerInstance->handleOneClassTemplateDecl(D);
   return true;
 }
@@ -105,7 +68,7 @@ bool InstantiateTemplateParamASTVisitor::VisitClassTemplateDecl(
 bool InstantiateTemplateParamASTVisitor::VisitFunctionTemplateDecl(
        FunctionTemplateDecl *D)
 {
-  if (D->isThisDeclarationADefinition())
+  if (D->isFirstDecl())
     ConsumerInstance->handleOneFunctionTemplateDecl(D);
   return true;
 }
@@ -120,6 +83,16 @@ public:
   { }
 
   bool VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc Loc);
+  bool VisitDeclRefExpr(DeclRefExpr* DRE) {
+    if (DRE->getDecl() == ConsumerInstance->TheTemplateSpec) {
+      auto Idx = ConsumerInstance->TheParameterIdx;
+      if (DRE->getNumTemplateArgs() > Idx) {
+        return ConsumerInstance->RewriteHelper->removeTemplateArgument(DRE, Idx);
+      }
+    }
+
+    return true;
+  }
 
 private:
   InstantiateTemplateParam *ConsumerInstance;
@@ -201,15 +174,8 @@ void InstantiateTemplateParam::removeTemplateKeyword()
   if (dyn_cast<ClassTemplateDecl>(TheTemplateDecl))
     return;
   TemplateParameterList *TPList = TheTemplateDecl->getTemplateParameters();
-  if (TPList->size() == 1) {
-    const NamedDecl* ND = TPList->getParam(0); (void)ND;
-    TransAssert((ND == TheParameter) && "Invalid template parameter!");
-    TheRewriter.RemoveText(SourceRange(TPList->getTemplateLoc(),
-        TPList->getRAngleLoc()));
-  } else if (auto* TTPD = dyn_cast<TemplateTypeParmDecl>(TheParameter)) {
-    if (!TTPD->hasDefaultArgument())
-      TheRewriter.InsertTextAfterToken(TTPD->getEndLoc(), "=int");
-  }
+  if (TheParameterIdx < TPList->size())
+    RewriteHelper->removeTemplateParameter(TPList, TheParameterIdx);
 }
 
 void InstantiateTemplateParam::addForwardDecl()
@@ -321,18 +287,12 @@ InstantiateTemplateParam::getTemplateArgumentString(const TemplateArgument &Arg,
 }
 
 void InstantiateTemplateParam::handleOneTemplateSpecialization(
-       const TemplateDecl *D, const TemplateArgumentList & ArgList)
+       const TemplateDecl *D, const TemplateArgumentList & ArgList, const clang::Decl* Spec)
 {
   if (isInIncludedFile(D))
     return;
 
   NamedDecl *ND = D->getTemplatedDecl();
-  TemplateParameterSet ParamsSet;
-  TemplateParameterVisitor ParameterVisitor(ParamsSet);
-  ParameterVisitor.TraverseDecl(ND);
-
-  if (ParamsSet.size() == 0)
-    return;
 
   unsigned NumArgs = ArgList.size(); (void)NumArgs;
   unsigned Idx = -1;
@@ -343,7 +303,7 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
     // TemplateTemplateParmDecl for now
     const TemplateTypeParmDecl *TyParmDecl = 
       dyn_cast<TemplateTypeParmDecl>(ND);
-    if (!TyParmDecl || TyParmDecl->isParameterPack() || !ParamsSet.count(ND))
+    if (!TyParmDecl || TyParmDecl->isParameterPack())
       continue;
 
     TransAssert((Idx < NumArgs) && "Invalid Idx!");
@@ -359,6 +319,8 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
     if (ValidInstanceNum == TransformationCounter) {
       TheInstantiationString = ArgStr;
       TheParameter = ND;
+      TheParameterIdx = Idx;
+      TheTemplateSpec = Spec;
       TheTemplateDecl = D;
       TheForwardDeclString = ForwardStr;
     }
@@ -377,7 +339,7 @@ void InstantiateTemplateParam::handleOneClassTemplateDecl(
   ++I;
   if (I != D->spec_end())
     return;
-  handleOneTemplateSpecialization(D, SpecD->getTemplateArgs());
+  handleOneTemplateSpecialization(D, SpecD->getTemplateArgs(), SpecD);
 }
 
 void InstantiateTemplateParam::handleOneFunctionTemplateDecl(
@@ -393,7 +355,7 @@ void InstantiateTemplateParam::handleOneFunctionTemplateDecl(
     return;
   if (const FunctionTemplateSpecializationInfo *Info =
       FD->getTemplateSpecializationInfo()) {
-    handleOneTemplateSpecialization(D, *(Info->TemplateArguments));
+    handleOneTemplateSpecialization(D, *(Info->TemplateArguments), FD);
   }
 }
 

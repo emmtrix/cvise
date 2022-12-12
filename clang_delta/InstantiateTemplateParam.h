@@ -64,7 +64,8 @@ private:
 
   void handleOneTemplateSpecialization(
          const clang::TemplateDecl *D, 
-         const clang::TemplateArgumentList & ArgList);
+         const clang::TemplateArgumentList & ArgList,
+         const clang::Decl* Spec);
 
   bool getTemplateArgumentString(const clang::TemplateArgument &Arg, 
                                  std::string &Str,
@@ -100,7 +101,11 @@ private:
 
   const clang::NamedDecl *TheParameter;
 
+  unsigned TheParameterIdx = 0;
+
   const clang::TemplateDecl *TheTemplateDecl;
+
+  const clang::Decl* TheTemplateSpec = nullptr;
 
   std::string TheInstantiationString;
 
