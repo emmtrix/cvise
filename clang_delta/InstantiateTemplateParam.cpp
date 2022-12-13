@@ -60,7 +60,7 @@ bool InstantiateTemplateParamASTVisitor::VisitRecordDecl(RecordDecl *D)
 bool InstantiateTemplateParamASTVisitor::VisitClassTemplateDecl(
        ClassTemplateDecl *D)
 {
-  if (D->isFirstDecl())
+  if (D->isThisDeclarationADefinition())
     ConsumerInstance->handleOneClassTemplateDecl(D);
   return true;
 }
@@ -321,6 +321,8 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
       TheTemplateSpec = Spec;
       TheTemplateDecl = D;
       TheForwardDeclString = ForwardStr;
+
+      TheTemplateDecl->print(llvm::errs());
     }
   }
 }
