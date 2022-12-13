@@ -30,6 +30,43 @@ only once. \n";
 static RegisterTransformation<InstantiateTemplateParam>
          Trans("instantiate-template-param", DescriptionMsg);
 
+namespace {
+
+typedef llvm::SmallPtrSet<const NamedDecl *, 8> TemplateParameterSet;
+
+class TemplateParameterVisitor : public 
+  RecursiveASTVisitor<TemplateParameterVisitor> {
+
+public:
+  explicit TemplateParameterVisitor(TemplateParameterSet &Params)
+             : UsedParameters(Params) 
+  { }
+
+  ~TemplateParameterVisitor() { };
+
+  bool VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc Loc);
+
+private:
+
+  TemplateParameterSet &UsedParameters;
+};
+
+// seems clang can't detect the T in T::* in the following case:
+// struct B;
+// template <typename T> struct C {
+//   C(void (T::*)()) { }
+// };
+// struct D { C<B> m; };
+bool TemplateParameterVisitor::VisitTemplateTypeParmTypeLoc(
+       TemplateTypeParmTypeLoc Loc)
+{
+  const TemplateTypeParmDecl *D = Loc.getDecl();
+  UsedParameters.insert(D);
+  return true;
+}
+
+} // end anonymous namespace
+
 class InstantiateTemplateParamASTVisitor : public 
   RecursiveASTVisitor<InstantiateTemplateParamASTVisitor> {
 
@@ -171,7 +208,7 @@ void InstantiateTemplateParam::HandleTranslationUnit(ASTContext &Ctx)
 
 void InstantiateTemplateParam::removeTemplateKeyword()
 {
-  if (dyn_cast<ClassTemplateDecl>(TheTemplateDecl))
+  if (isa<ClassTemplateDecl>(TheTemplateDecl))
     return;
   TemplateParameterList *TPList = TheTemplateDecl->getTemplateParameters();
   if (TheParameterIdx < TPList->size())
@@ -292,6 +329,11 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
   if (isInIncludedFile(D))
     return;
 
+  NamedDecl *TD = D->getTemplatedDecl();
+  TemplateParameterSet ParamsSet;
+  TemplateParameterVisitor ParameterVisitor(ParamsSet);
+  ParameterVisitor.TraverseDecl(TD);
+
   unsigned NumArgs = ArgList.size(); (void)NumArgs;
   unsigned Idx = -1;
   TemplateParameterList *TPList = D->getTemplateParameters();
@@ -302,6 +344,10 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
     const TemplateTypeParmDecl *TyParmDecl = 
       dyn_cast<TemplateTypeParmDecl>(ND);
     if (!TyParmDecl || TyParmDecl->isParameterPack())
+      continue;
+    // For classes we are not removing the template parameter right now
+    // So we need to check that any replacement is performed
+    if (isa<ClassTemplateDecl>(D) && !ParamsSet.count(ND))
       continue;
 
     TransAssert((Idx < NumArgs) && "Invalid Idx!");
@@ -321,8 +367,6 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
       TheTemplateSpec = Spec;
       TheTemplateDecl = D;
       TheForwardDeclString = ForwardStr;
-
-      TheTemplateDecl->print(llvm::errs());
     }
   }
 }
