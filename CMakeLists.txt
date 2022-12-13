@@ -140,7 +140,12 @@ add_definitions("-DHAVE_CONFIG_H")
 check_cxx_compiler_flag(
   "-fvisibility-inlines-hidden"
   SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG
-  )
+)
+
+check_cxx_compiler_flag(
+  "-Wno-error=mismatched-new-delete"
+  SUPPORTS_WMISMATCHED_NEW_DELETE
+)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -151,6 +156,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
   if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
   endif()
+  if(SUPPORTS_WMISMATCHED_NEW_DELETE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=mismatched-new-delete")
+  endif()
+
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 endif()
