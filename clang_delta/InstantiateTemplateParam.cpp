@@ -120,6 +120,7 @@ public:
   { }
 
   bool VisitTemplateTypeParmTypeLoc(TemplateTypeParmTypeLoc Loc);
+
   bool VisitDeclRefExpr(DeclRefExpr* DRE) {
     if (DRE->getDecl() == ConsumerInstance->TheTemplateSpec) {
       auto Idx = ConsumerInstance->TheParameterIdx;
@@ -128,6 +129,17 @@ public:
       }
     }
 
+    return true;
+  }
+
+  void RemoveEllipsis(SourceLocation Loc) {
+    std::string Text = ConsumerInstance->TheRewriter.getRewrittenText({ Loc, Loc });
+    if (Text == "...")
+      ConsumerInstance->TheRewriter.RemoveText({ Loc, Loc });
+  }
+
+  bool VisitPackExpansionExpr(PackExpansionExpr* PEE) {
+    RemoveEllipsis(PEE->getEllipsisLoc());
     return true;
   }
 
@@ -163,8 +175,15 @@ InstantiateTemplateParamRewriteVisitor::VisitTemplateTypeParmTypeLoc(
   ConsumerInstance->VisitedLocs.insert(Ptr);
 
   SourceRange Range = Loc.getSourceRange();
-  ConsumerInstance->TheRewriter.ReplaceText(Range, 
-                       ConsumerInstance->TheInstantiationString);
+
+  ConsumerInstance->TheRewriter.ReplaceText(Range,
+      ConsumerInstance->TheInstantiationString);
+
+  if (D->isParameterPack()) {
+    auto EllipsisLoc = ConsumerInstance->RewriteHelper->getLocationUntil(Range.getEnd(), '.');
+    RemoveEllipsis(EllipsisLoc);
+  }
+
   return true;
 }
 
@@ -317,10 +336,16 @@ InstantiateTemplateParam::getTemplateArgumentString(const TemplateArgument &Arg,
 {
   ArgStr = "";
   ForwardStr = "";
-  if (Arg.getKind() != TemplateArgument::Type)
-    return false;
-  QualType QT = Arg.getAsType();
-  return getTypeString(QT, ArgStr, ForwardStr);
+  if (Arg.getKind() == TemplateArgument::Type) {
+    QualType QT = Arg.getAsType();
+    return getTypeString(QT, ArgStr, ForwardStr);
+  } else if (Arg.getKind() == TemplateArgument::Pack) {
+    if (Arg.pack_size() == 1) {
+      return getTemplateArgumentString(*Arg.pack_begin(), ArgStr, ForwardStr);
+    }
+  }
+
+  return false;
 }
 
 void InstantiateTemplateParam::handleOneTemplateSpecialization(
@@ -343,7 +368,7 @@ void InstantiateTemplateParam::handleOneTemplateSpecialization(
     // TemplateTemplateParmDecl for now
     const TemplateTypeParmDecl *TyParmDecl = 
       dyn_cast<TemplateTypeParmDecl>(ND);
-    if (!TyParmDecl || TyParmDecl->isParameterPack())
+    if (!TyParmDecl)
       continue;
     // For classes we are not removing the template parameter right now
     // So we need to check that any replacement is performed
