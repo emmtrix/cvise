@@ -1838,7 +1838,7 @@ bool RewriteUtils::removeTemplateArgument(const clang::DeclRefExpr* DRE, unsigne
 
   const TemplateArgumentLoc* Args = DRE->getTemplateArgs();
   if (DRE->getNumTemplateArgs() == 1) {
-    return TheRewriter->RemoveText({ DRE->getLAngleLoc(), DRE->getRAngleLoc() });
+    return !TheRewriter->RemoveText({ DRE->getLAngleLoc(), DRE->getRAngleLoc() });
   } else if (Idx == 0) {
     return removeTextUntil(Args[Idx].getSourceRange(), ',');
   } else {
@@ -1852,7 +1852,7 @@ bool RewriteUtils::removeTemplateParameter(const clang::TemplateParameterList* T
 
   const NamedDecl* Param = TPL->getParam(Idx);
   if (TPL->size() == 1) {
-    return TheRewriter->RemoveText({ TPL->getTemplateLoc(), TPL->getRAngleLoc() });
+    return !TheRewriter->RemoveText({ TPL->getTemplateLoc(), TPL->getRAngleLoc() });
   } else if (Idx == 0) {
     return removeTextUntil(Param->getSourceRange(), ',');
   } else {
