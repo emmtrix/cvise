@@ -112,6 +112,7 @@ bool InstantiateTemplateParamASTVisitor::VisitFunctionTemplateDecl(
 
 class InstantiateTemplateParamRewriteVisitor : public 
   RecursiveASTVisitor<InstantiateTemplateParamRewriteVisitor> {
+  using Base = RecursiveASTVisitor<InstantiateTemplateParamRewriteVisitor>;
 
 public:
   explicit InstantiateTemplateParamRewriteVisitor(
@@ -129,22 +130,50 @@ public:
       }
     }
 
-    return true;
+    Base::TraverseType(DRE->getType());
+
+    return Base::VisitDeclRefExpr(DRE);
+  }
+
+  bool VisitTemplateTypeParmType(TemplateTypeParmType* TTPT) {
+    if (TTPT->getDecl() == ConsumerInstance->TheParameter)
+      RemoveEllipsis(EllipsisLoc);
+
+    return Base::VisitTemplateTypeParmType(TTPT);
   }
 
   void RemoveEllipsis(SourceLocation Loc) {
+    if (!Loc.isValid())
+      return;
+
     std::string Text = ConsumerInstance->TheRewriter.getRewrittenText({ Loc, Loc });
     if (Text == "...")
       ConsumerInstance->TheRewriter.RemoveText({ Loc, Loc });
   }
 
-  bool VisitPackExpansionExpr(PackExpansionExpr* PEE) {
-    //RemoveEllipsis(PEE->getEllipsisLoc());
-    return true;
+  bool TraversePackExpansionExpr(PackExpansionExpr* PEE) {
+    EllipsisLoc = PEE->getEllipsisLoc();
+
+    bool Res = Base::TraversePackExpansionExpr(PEE);
+
+    EllipsisLoc = {};
+
+    return Res;
+  }
+
+  bool TraversePackExpansionTypeLoc(PackExpansionTypeLoc TL) {
+    EllipsisLoc = TL.getEllipsisLoc();
+
+    bool Res = Base::TraversePackExpansionTypeLoc(TL);
+
+    EllipsisLoc = {};
+
+    return Res;
   }
 
 private:
   InstantiateTemplateParam *ConsumerInstance;
+  SourceLocation EllipsisLoc;
 
 };
 
@@ -179,10 +208,6 @@ InstantiateTemplateParamRewriteVisitor::VisitTemplateTypeParmTypeLoc(
   ConsumerInstance->TheRewriter.ReplaceText(Range,
       ConsumerInstance->TheInstantiationString);
 
-  if (D->isParameterPack()) {
-    auto EllipsisLoc = ConsumerInstance->RewriteHelper->getLocationUntil(Range.getEnd(), '.');
-    RemoveEllipsis(EllipsisLoc);
-  }
 
   return true;
 }
