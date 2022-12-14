@@ -231,7 +231,8 @@ void InstantiateTemplateParam::HandleTranslationUnit(ASTContext &Ctx)
   TransAssert(TheParameter && "NULL TheParameter!");
   TransAssert((TheInstantiationString != "") && "Invalid InstantiationString!");
   TransAssert(ParamRewriteVisitor && "NULL ParamRewriteVisitor!");
-  ParamRewriteVisitor->TraverseDecl(Ctx.getTranslationUnitDecl());
+  if (!ParamRewriteVisitor->TraverseDecl(Ctx.getTranslationUnitDecl()))
+    llvm::errs() << "Warning: ParamRewriteVisitor->TraverseDecl returned 0\n";
   removeTemplateKeyword();
   addForwardDecl();
 
