@@ -139,7 +139,7 @@ public:
   }
 
   bool VisitPackExpansionExpr(PackExpansionExpr* PEE) {
-    RemoveEllipsis(PEE->getEllipsisLoc());
+    //RemoveEllipsis(PEE->getEllipsisLoc());
     return true;
   }
 
