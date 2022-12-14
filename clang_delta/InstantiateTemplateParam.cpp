@@ -187,6 +187,21 @@ InstantiateTemplateParamRewriteVisitor::VisitTemplateTypeParmTypeLoc(
   return true;
 }
 
+class InstantiateTemplateParam::FindForwardDeclVisitor : public RecursiveASTVisitor<FindForwardDeclVisitor> {
+  InstantiateTemplateParam* ConsumerInstance;
+  std::string& ForwardStr;
+  RecordDeclSet TempAvailableRecordDecls;
+public:
+  explicit FindForwardDeclVisitor(InstantiateTemplateParam* ConsumerInstance, std::string& ForwardStr) 
+      : ConsumerInstance(ConsumerInstance), ForwardStr(ForwardStr)
+  { }
+
+  bool VisitRecordType(RecordType* RT) {
+    ConsumerInstance->getForwardDeclStr(RT, ForwardStr, TempAvailableRecordDecls);
+    return true;
+  }
+};
+
 void InstantiateTemplateParam::Initialize(ASTContext &context) 
 {
   Transformation::Initialize(context);
@@ -326,6 +341,9 @@ bool InstantiateTemplateParam::getTypeString(
   QT.print(Strm, getPrintingPolicy(), ForwardStr);
   if (Str == "nullptr_t")
     Str = "decltype(nullptr)";
+
+  FindForwardDeclVisitor(this, ForwardStr).TraverseType(QT);
+
   return true;
 }
 

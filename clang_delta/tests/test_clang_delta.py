@@ -129,6 +129,9 @@ class TestClangDelta(unittest.TestCase):
     def test_instantiate_template_param_default_test6(self):
         self.check_clang_delta('instantiate-template-param/test6.cc', '--transformation=instantiate-template-param --counter=2')
 
+    def test_instantiate_template_param_default_test7(self):
+        self.check_clang_delta('instantiate-template-param/test7.cc', '--transformation=instantiate-template-param --counter=1')
+
     def test_local_to_global_macro(self):
         self.check_clang_delta('local-to-global/macro.c', '--transformation=local-to-global --counter=1')
 

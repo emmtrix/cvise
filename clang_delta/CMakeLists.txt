@@ -96,6 +96,8 @@ set(SOURCE_FILES
   "/tests/instantiate-template-param/test5.output"
   "/tests/instantiate-template-param/test6.cc"
   "/tests/instantiate-template-param/test6.output"
+  "/tests/instantiate-template-param/test7.cc"
+  "/tests/instantiate-template-param/test7.output"
   "/tests/local-to-global/macro.c"
   "/tests/local-to-global/macro.output"
   "/tests/local-to-global/unnamed_1.c"
