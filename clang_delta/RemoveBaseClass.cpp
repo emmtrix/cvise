@@ -23,24 +23,15 @@
 using namespace clang;
 using namespace clang_delta_common_visitor;
 
-static const char *DescriptionMsgRemove = 
+static const char *DescriptionMsg = 
 "This pass removes a base class from a derived class. \n";
 
-static const char* DescriptionMsgMerge =
-"This pass merges a base class into a derived class if \n\
-  * it has less than or equal to 5 declarations. \n\
-All its declarations will be moved into one of its subclasses, \
-and all references to this base class will be replaced with \
-the corresponding subclass. \n";
-
 // Note that this pass doesn't do much analysis, so
-// it will produce quite a few incompilable code, especially
+// it will produce quite a few uncompilable code, especially
 // when multi-inheritance is involved.
 
-static RegisterTransformation<RemoveBaseClass>
-         TransRemove("remove-base-class", DescriptionMsgRemove);
-static RegisterTransformation<RemoveBaseClass>
-         TransMerge("merge-base-class", DescriptionMsgMerge);
+static RegisterTransformation<RemoveBaseClass, RemoveBaseClass::EMode>
+         Trans("remove-base-class", DescriptionMsg, RemoveBaseClass::EMode::Remove);
 
 class RemoveBaseClassBaseVisitor : public 
   RecursiveASTVisitor<RemoveBaseClassBaseVisitor> {
@@ -125,7 +116,7 @@ void RemoveBaseClass::handleOneCXXRecordDecl(const CXXRecordDecl *CXXRD)
 
     if (Base == nullptr)
       continue;
-    if (Merge && getNumExplicitDecls(Base) > MaxNumDecls)
+    if (Mode == EMode::Merge && getNumExplicitDecls(Base) > MaxNumDecls)
       continue;
     if (isInIncludedFile(Base))
       continue;
@@ -141,10 +132,10 @@ void RemoveBaseClass::handleOneCXXRecordDecl(const CXXRecordDecl *CXXRD)
 
 void RemoveBaseClass::doRewrite(void)
 {
-  if (Merge)
+  if (Mode == EMode::Merge)
     copyBaseClassDecls();
   removeBaseSpecifier();
-  if (Merge)
+  if (Mode == EMode::Merge)
     RewriteHelper->removeClassDecls(TheBaseClass);
 
   // ISSUE: I didn't handle Base initializer in a Ctor's initlist.
@@ -178,10 +169,8 @@ void RemoveBaseClass::copyBaseClassDecls(void)
     // the class with all resolved template parameters
 
     // Rename internally the constructors to the derived class
-    for (auto* D : CTSD->decls()) {
-      if (auto* CD = dyn_cast<CXXConstructorDecl>(D)) {
-        CD->setDeclName(TheDerivedClass->getDeclName());
-      }
+    for (CXXConstructorDecl* CD : CTSD->ctors()) {
+      CD->setDeclName(TheDerivedClass->getDeclName());
     }
 
     llvm::raw_string_ostream Strm(DeclsStr);
@@ -190,13 +179,18 @@ void RemoveBaseClass::copyBaseClassDecls(void)
     DeclsStr.erase(0, DeclsStr.find('{') + 1);
     DeclsStr.erase(DeclsStr.rfind('}'), 1);
   } else {
+    // Rename constructors
+    for (CXXConstructorDecl* CD : TheBaseClass->ctors()) {
+      TheRewriter.ReplaceText(CD->getNameInfo().getSourceRange(), TheDerivedClass->getDeclName().getAsString());
+    }
+
     SourceLocation StartLoc = TheBaseClass->getBraceRange().getBegin();
     SourceLocation EndLoc = TheBaseClass->getBraceRange().getEnd();
     TransAssert(EndLoc.isValid() && "Invalid RBraceLoc!");
     StartLoc = StartLoc.getLocWithOffset(1);
     EndLoc = EndLoc.getLocWithOffset(-1);
 
-    DeclsStr = TheRewriter.getRewrittenText(SourceRange(StartLoc, EndLoc));
+    DeclsStr = TheRewriter.getRewrittenText(SourceRange(StartLoc, EndLoc)) + "\n";
   }
 
   TransAssert(!DeclsStr.empty() && "Empty DeclsStr!");
@@ -209,10 +203,6 @@ bool RemoveBaseClass::isTheBaseClass(const CXXBaseSpecifier &Specifier)
   const Type *Ty = TheBaseClass->getTypeForDecl();
   return Context->hasSameType(Specifier.getType(), 
                               Ty->getCanonicalTypeInternal());
-}
-
-RemoveBaseClass::RemoveBaseClass(const char* TransName, const char* Desc) : Transformation(TransName, Desc) {
-    Merge = (TransName == std::string("merge-base-class"));
 }
 
 void RemoveBaseClass::removeBaseSpecifier(void)
@@ -291,4 +281,3 @@ RemoveBaseClass::~RemoveBaseClass(void)
 {
   delete CollectionVisitor;
 }
-

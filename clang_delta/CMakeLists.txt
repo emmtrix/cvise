@@ -124,6 +124,14 @@ set(SOURCE_FILES
   "/tests/merge-base-class/test2.output"
   "/tests/merge-base-class/test3.cc"
   "/tests/merge-base-class/test3.output"
+  "/tests/remove-base-class/test1.cc"
+  "/tests/remove-base-class/test1.output"
+  "/tests/remove-base-class/test2.cc"
+  "/tests/remove-base-class/test2.output"
+  "/tests/remove-base-class/test3.cc"
+  "/tests/remove-base-class/test3.output"
+  "/tests/remove-base-class/test4.cc"
+  "/tests/remove-base-class/test4.output"
   "/tests/move-function-body/test1.cc"
   "/tests/move-function-body/test1.output"
   "/tests/move-function-body/test2.cc"
@@ -134,14 +142,6 @@ set(SOURCE_FILES
   "/tests/move-function-body/test4.output"
   "/tests/move-function-body/test5.cc"
   "/tests/move-function-body/test5.output"
-  "/tests/remove-base-class/test1.cc"
-  "/tests/remove-base-class/test1.output"
-  "/tests/remove-base-class/test2.cc"
-  "/tests/remove-base-class/test2.output"
-  "/tests/remove-base-class/test3.cc"
-  "/tests/remove-base-class/test3.output"
-  "/tests/remove-base-class/test4.cc"
-  "/tests/remove-base-class/test4.output"
   "/tests/remove-namespace/macro.cpp"
   "/tests/remove-namespace/macro.output"
   "/tests/remove-namespace/macro.output2"
@@ -543,6 +543,7 @@ add_executable(clang_delta
   RemoveArray.h
   RemoveBaseClass.cpp
   RemoveBaseClass.h
+  MergeBaseClass.cpp
   RemoveCtorInitializer.cpp
   RemoveCtorInitializer.h
   RemoveEnumMemberValue.cpp

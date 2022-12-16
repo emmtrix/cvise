@@ -27,8 +27,12 @@ class RemoveBaseClass : public Transformation {
 friend class RemoveBaseClassBaseVisitor;
 
 public:
-  RemoveBaseClass(const char *TransName, const char *Desc);
+  enum class EMode { Remove, Merge };
 
+  RemoveBaseClass(const char *TransName, const char *Desc, EMode Mode)
+    : Transformation(TransName, Desc),
+      Mode(Mode)
+  { }
   ~RemoveBaseClass(void);
 
 private:
@@ -63,7 +67,7 @@ private:
 
   const unsigned MaxNumDecls = 5;
 
-  bool Merge;
+  EMode Mode;
 
   // Unimplemented
   RemoveBaseClass(void);
