@@ -517,8 +517,8 @@ add_executable(clang_delta
   LiftAssignmentExpr.h
   LocalToGlobal.cpp
   LocalToGlobal.h
-  MoveFunctionBody.cpp
-  MoveFunctionBody.h
+  MoveDefinitionToDeclaration.cpp
+  MoveDefinitionToDeclaration.h
   MoveGlobalVar.cpp
   MoveGlobalVar.h
   ParamToGlobal.cpp
