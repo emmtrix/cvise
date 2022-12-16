@@ -36,17 +36,33 @@ public:
   explicit CollectionVisitor(MoveDefinitionToDeclaration* Instance) : ConsumerInstance(Instance)
   { }
 
-  bool VisitFunctionDecl(FunctionDecl* FuncDef) {
-    if (!FuncDef->isThisDeclarationADefinition())
-      return true;
+  void CheckAndAddCondidate(Decl* Def) {
+    auto* Decl = Def->getPreviousDecl();
+    if (Decl == nullptr || Def == Decl)
+      return;
+    if (ConsumerInstance->isInIncludedFile(Def) || ConsumerInstance->isInIncludedFile(Decl))
+      return;
 
-    auto* FuncDecl = FuncDef->getFirstDecl();
-    if (FuncDef == FuncDecl)
-      return true;
-    if (ConsumerInstance->isInIncludedFile(FuncDef) || ConsumerInstance->isInIncludedFile(FuncDecl))
-      return true;
+    ConsumerInstance->FunctionCandidates.push_back(Def);
+  }
 
-    ConsumerInstance->FunctionCandidates.push_back(FuncDef);
+  bool VisitFunctionDecl(FunctionDecl* FD) {
+    if (FD->isThisDeclarationADefinition())
+      CheckAndAddCondidate(FD);
+
+    return true;
+  }
+
+  bool VisitVarDecl(VarDecl* VD) {
+    if (VD->isThisDeclarationADefinition())
+      CheckAndAddCondidate(VD);
+
+    return true;
+  }
+
+  bool VisitTagDecl(TagDecl* VD) {
+    if (VD->isThisDeclarationADefinition())
+      CheckAndAddCondidate(VD);
 
     return true;
   }
@@ -69,16 +85,12 @@ void MoveDefinitionToDeclaration::HandleTranslationUnit(ASTContext &Ctx)
   }
 
   TheFunctionDef = FunctionCandidates[TransformationCounter-1];
-  TheFunctionDecl = TheFunctionDef->getFirstDecl();
+  TheFunctionDecl = TheFunctionDef->getPreviousDecl();
 
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
 
   TransAssert(TheFunctionDecl && "NULL TheFunctionDecl!");
-  TransAssert(!TheFunctionDecl->isThisDeclarationADefinition() &&
-              "Invalid Function Declaration!");
   TransAssert(TheFunctionDef && "NULL TheFunctionDef!");
-  TransAssert(TheFunctionDef->isThisDeclarationADefinition() &&
-              "Invalid Function Definition!");
 
   doRewriting();
 
@@ -103,17 +115,21 @@ void MoveDefinitionToDeclaration::doRewriting(void)
   SourceRange DefRange = RewriteHelper->getDeclFullSourceRange(TheFunctionDef);
 
   // Remove namespace and class qualifiers
-  if (auto QL = TheFunctionDef->getQualifierLoc()) {
-    TheRewriter.RemoveText(QL.getSourceRange());
+  if (auto* DD = dyn_cast<DeclaratorDecl>(TheFunctionDef)) {
+    if (auto QL = DD->getQualifierLoc()) {
+      TheRewriter.RemoveText(QL.getSourceRange());
+    }
   }
 
-  if (auto* MD = dyn_cast<CXXMethodDecl>(TheFunctionDecl)) {
+  if (auto* MethDecl = dyn_cast<CXXMethodDecl>(TheFunctionDecl)) {
+    auto* MethDef = cast<CXXMethodDecl>(TheFunctionDef);
+
     // Update the template parameters name of the class if they are empty
     // This is very likely since unused parameter names gets removed during reduction
-    if (TheFunctionDef->getNumTemplateParameterLists() == 1) {
-      TemplateParameterList* TPL = TheFunctionDef->getTemplateParameterList(0);
+    if (MethDef->getNumTemplateParameterLists() == 1) {
+      TemplateParameterList* TPL = MethDef->getTemplateParameterList(0);
 
-      if (const TemplateParameterList* ClassTPL = getDescribedTemplateParams(MD->getParent())) {
+      if (const TemplateParameterList* ClassTPL = getDescribedTemplateParams(MethDecl->getParent())) {
         assert(TPL->size() == ClassTPL->size());
         for (unsigned i2 = 0; i2 < ClassTPL->size(); ++i2) {
           auto* Param = TPL->getParam(i2);
@@ -130,8 +146,8 @@ void MoveDefinitionToDeclaration::doRewriting(void)
     }
 
     // Removing template lists for classes
-    for (unsigned i = 0; i < TheFunctionDef->getNumTemplateParameterLists(); ++i) {
-      TemplateParameterList* TPL = TheFunctionDef->getTemplateParameterList(i);
+    for (unsigned i = 0; i < MethDef->getNumTemplateParameterLists(); ++i) {
+      TemplateParameterList* TPL = MethDef->getTemplateParameterList(i);
       TheRewriter.RemoveText(TPL->getSourceRange());
     }
   }
@@ -145,7 +161,7 @@ void MoveDefinitionToDeclaration::doRewriting(void)
     auto DeclRange = RewriteHelper->getDeclFullSourceRange(TheFunctionDecl);
     TheRewriter.ReplaceText(DeclRange, FuncDefStr);
   } else {
-    RewriteHelper->addStringAfterFuncDecl(TheFunctionDecl, FuncDefStr);
+    RewriteHelper->addStringAfterDecl(TheFunctionDecl, FuncDefStr);
   }
 }
 

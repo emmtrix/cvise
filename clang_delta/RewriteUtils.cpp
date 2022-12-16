@@ -173,22 +173,37 @@ SourceLocation RewriteUtils::getEndLocationAfter(SourceRange Range,
   return EndLoc.getLocWithOffset(Offset);
 }
 
-clang::SourceRange RewriteUtils::getDeclFullSourceRange(clang::Decl* D)
+clang::SourceRange RewriteUtils::getDeclFullSourceRange(const clang::Decl* D)
 {
   SourceRange Range = D->getSourceRange();
-  bool HasSemicolon = false;
 
-  // Ensure that function template parameters are included in the def range
+  // Ensure that template parameters are included in the def range
   if (auto* FD = dyn_cast<FunctionDecl>(D)) {
-    HasSemicolon |= !FD->doesThisDeclarationHaveABody();
-
     if (FD->getNumTemplateParameterLists()) {
       TemplateParameterList* TPL = FD->getTemplateParameterList(0);
       Range.setBegin(TPL->getSourceRange().getBegin());
-    } else if (auto* DFT = FD->getDescribedFunctionTemplate()) {
-      TemplateParameterList* TPL = DFT->getTemplateParameters();
+    } else if (auto* T = FD->getDescribedTemplate()) {
+      TemplateParameterList* TPL = T->getTemplateParameters();
       Range.setBegin(TPL->getSourceRange().getBegin());
     }
+  } else if (auto* TD = dyn_cast<TagDecl>(D)) {
+    if (TD->getNumTemplateParameterLists()) {
+      TemplateParameterList* TPL = TD->getTemplateParameterList(0);
+      Range.setBegin(TPL->getSourceRange().getBegin());
+    } else if (auto* T = TD->getDescribedTemplate()) {
+      TemplateParameterList* TPL = T->getTemplateParameters();
+      Range.setBegin(TPL->getSourceRange().getBegin());
+    }
+  }
+
+
+  // Include the semicolon into the declaration. 
+  // See DeclPrinter::VisitDeclContext in clang source code for all cases.
+  bool HasSemicolon = true;
+  if (auto* FD = dyn_cast<FunctionDecl>(D)) {
+    HasSemicolon = !FD->doesThisDeclarationHaveABody();
+  } else if (auto* FTD = dyn_cast<FunctionTemplateDecl>(D)) {
+    HasSemicolon = !FTD->getTemplatedDecl()->isThisDeclarationADefinition();
   }
 
   if (HasSemicolon)
@@ -951,13 +966,11 @@ bool RewriteUtils::addStringAfterVarDecl(const VarDecl *VD,
   return !(TheRewriter->InsertText(LocEnd, "\n" + Str));
 }
 
-bool RewriteUtils::addStringAfterFuncDecl(const FunctionDecl *FD,
-                                          const std::string &Str)
+bool RewriteUtils::addStringAfterDecl(const Decl *D, const std::string &Str)
 {
-  SourceRange FDRange = FD->getSourceRange();
-  SourceLocation LocEnd = getEndLocationAfter(FDRange, ';');
+  SourceRange Range = getDeclFullSourceRange(D);
   
-  return !(TheRewriter->InsertText(LocEnd, "\n" + Str));
+  return !(TheRewriter->InsertText(Range.getEnd(), "\n" + Str));
 }
 
 // This function is an experimental one. It doesn't work
