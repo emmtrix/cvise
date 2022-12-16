@@ -25,8 +25,7 @@ using namespace clang_delta_common_visitor;
 
 static const char *DescriptionMsg = 
 "This pass removes a base class from its class hierarchy if \n\
-  * it has less than or equal to 5 declarations, and \n\
-  * it is not a templated class. \n\
+  * it has less than or equal to 5 declarations. \n\
 All its declarations will be moved into one of its subclasses, \
 and all references to this base class will be replaced with \
 the corresponding subclass. \n";
@@ -134,48 +133,26 @@ bool RemoveBaseClass::isDirectlyDerivedFrom(const CXXRecordDecl *SubC,
 
 void RemoveBaseClass::handleOneCXXRecordDecl(const CXXRecordDecl *CXXRD)
 {
-  if (isSpecialRecordDecl(CXXRD) || CXXRD->getDescribedClassTemplate() || 
-      !CXXRD->hasDefinition())
+  if (isSpecialRecordDecl(CXXRD) || !CXXRD->isThisDeclarationADefinition())
     return;
 
-  const CXXRecordDecl *CanonicalRD = CXXRD->getCanonicalDecl();
-  if (VisitedCXXRecordDecls.count(CanonicalRD))
-    return;
-  VisitedCXXRecordDecls.insert(CanonicalRD);
-  if (CanonicalRD->getNumBases()) {
-    const CXXRecordDecl *Base = NULL;
-    for (CXXRecordDeclSet::iterator I = AllBaseClasses.begin(), 
-         E = AllBaseClasses.end(); I != E; ++I) {
-      if (const ClassTemplateSpecializationDecl * CTSD = 
-          dyn_cast<ClassTemplateSpecializationDecl>
-            (CanonicalRD->getDefinition())) {
-        if (!CTSD->isExplicitSpecialization())
-          continue;
-      }
+  for (const CXXBaseSpecifier& BS : CXXRD->bases()) {
+    auto* Base = BS.getType()->getAsCXXRecordDecl();
 
-      if (isInIncludedFile(*I))
-        continue;
-      if (isDirectlyDerivedFrom(CanonicalRD, *I)) {
-        Base = (*I);
-        ValidInstanceNum++;
-        if (ValidInstanceNum == TransformationCounter) {
-          TransAssert(Base->hasDefinition() && 
-                      "Base class does not have any definition!");
-          TheBaseClass = Base->getDefinition();
-          TransAssert(CanonicalRD->hasDefinition() && 
-                      "Derived class does not have any definition!");
-          TheDerivedClass = CanonicalRD->getDefinition();
-        }
-      }
+    if (Base == nullptr)
+      continue;
+    if (getNumExplicitDecls(Base) > MaxNumDecls)
+      continue;
+    if (isInIncludedFile(Base))
+      continue;
+
+    ValidInstanceNum++;
+    if (ValidInstanceNum == TransformationCounter) {
+      TransAssert(Base->hasDefinition() && "Base class does not have any definition!");
+      TheBaseClass = Base->getDefinition();
+      TheDerivedClass = CXXRD;
     }
-    return;
   }
-
-  if (getNumExplicitDecls(CanonicalRD) > MaxNumDecls)
-    return;
-
-  if (!AllBaseClasses.count(CanonicalRD))
-    AllBaseClasses.insert(CanonicalRD);
 }
 
 void RemoveBaseClass::doRewrite(void)
@@ -207,13 +184,34 @@ void RemoveBaseClass::copyBaseClassDecls(void)
 {
   if (!getNumExplicitDecls(TheBaseClass))
     return;
-  SourceLocation StartLoc = TheBaseClass->getBraceRange().getBegin();
-  SourceLocation EndLoc = TheBaseClass->getBraceRange().getEnd();
-  TransAssert(EndLoc.isValid() && "Invalid RBraceLoc!");
-  EndLoc = EndLoc.getLocWithOffset(-1);
 
-  std::string DeclsStr = 
-    TheRewriter.getRewrittenText(SourceRange(StartLoc, EndLoc));
+  std::string DeclsStr;
+  auto* CTSD = dyn_cast<ClassTemplateSpecializationDecl>(TheBaseClass);
+  if (CTSD && CTSD->getSpecializationKind() == TSK_ImplicitInstantiation) {
+    // For template bases, we use the printing feature of clang to generate
+    // the class with all resolved template parameters
+
+    // Rename internally the constructors to the derived class
+    for (auto* D : CTSD->decls()) {
+      if (auto* CD = dyn_cast<CXXConstructorDecl>(D)) {
+        CD->setDeclName(TheDerivedClass->getDeclName());
+      }
+    }
+
+    llvm::raw_string_ostream Strm(DeclsStr);
+    CTSD->print(Strm);
+
+    DeclsStr.erase(0, DeclsStr.find('{') + 1);
+    DeclsStr.erase(DeclsStr.rfind('}'), 1);
+  } else {
+    SourceLocation StartLoc = TheBaseClass->getBraceRange().getBegin();
+    SourceLocation EndLoc = TheBaseClass->getBraceRange().getEnd();
+    TransAssert(EndLoc.isValid() && "Invalid RBraceLoc!");
+    StartLoc = StartLoc.getLocWithOffset(1);
+    EndLoc = EndLoc.getLocWithOffset(-1);
+
+    DeclsStr = TheRewriter.getRewrittenText(SourceRange(StartLoc, EndLoc));
+  }
 
   TransAssert(!DeclsStr.empty() && "Empty DeclsStr!");
   SourceLocation InsertLoc = TheDerivedClass->getBraceRange().getEnd();

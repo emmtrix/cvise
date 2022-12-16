@@ -1886,6 +1886,11 @@ bool RewriteUtils::removeTemplateParameter(const clang::TemplateParameterList* T
 
 bool RewriteUtils::removeClassDecls(const CXXRecordDecl *CXXRD)
 {
+  if (auto* CTSD = dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+    if (CTSD->getSpecializationKind() == TSK_ImplicitInstantiation)
+      CXXRD = CTSD->getSpecializedTemplate()->getTemplatedDecl();
+  }
+
   for (CXXRecordDecl::redecl_iterator I = CXXRD->redecls_begin(),
       E = CXXRD->redecls_end(); I != E; ++I) {
     SourceRange Range = (*I)->getSourceRange();
@@ -1901,6 +1906,9 @@ bool RewriteUtils::removeClassDecls(const CXXRecordDecl *CXXRD)
       LocEnd = getEndLocationUntil(Range, ';');
     }
     TheRewriter->RemoveText(SourceRange(Range.getBegin(), LocEnd));
+
+    if (auto* TPL = (*I)->getDescribedTemplateParams())
+      TheRewriter->RemoveText(TPL->getSourceRange());
   }
   return true;
 }
