@@ -40,7 +40,14 @@ public:
     auto* Decl = Def->getPreviousDecl();
     if (Decl == nullptr || Def == Decl)
       return;
-    if (ConsumerInstance->isInIncludedFile(Def) || ConsumerInstance->isInIncludedFile(Decl))
+
+    auto DefRange = ConsumerInstance->RewriteHelper->getDeclFullSourceRange(Def);
+    auto DeclRange = ConsumerInstance->RewriteHelper->getDeclFullSourceRange(Decl);
+    if (DefRange.isInvalid() || DeclRange.isInvalid() || ConsumerInstance->isInIncludedFile(DefRange) || ConsumerInstance->isInIncludedFile(DeclRange))
+      return;
+
+    auto Text = ConsumerInstance->TheRewriter.getRewrittenText({ DeclRange.getEnd(), DefRange.getBegin().getLocWithOffset(-1) });
+    if (std::all_of(Text.begin(), Text.end(), isspace))
       return;
 
     ConsumerInstance->FunctionCandidates.push_back(Def);
