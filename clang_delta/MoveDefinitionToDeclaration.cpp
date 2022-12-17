@@ -23,8 +23,9 @@
 using namespace clang;
 
 static const char *DescriptionMsg =
-"Move function body towards its declaration. \
-Note that this pass would generate uncompilable code. \n";
+"Move definitions towards its declaration. \
+Supporting functions, methods, variables, structs, unions and classes. \
+Note that this pass could generate uncompilable code. \n";
 
 static RegisterTransformation<MoveDefinitionToDeclaration>
          Trans("move-definition-to-declaration", DescriptionMsg);
@@ -50,7 +51,7 @@ public:
     if (std::all_of(Text.begin(), Text.end(), isspace))
       return;
 
-    ConsumerInstance->FunctionCandidates.push_back(Def);
+    ConsumerInstance->DefCandidates.push_back(Def);
   }
 
   bool VisitFunctionDecl(FunctionDecl* FD) {
@@ -81,7 +82,7 @@ void MoveDefinitionToDeclaration::HandleTranslationUnit(ASTContext &Ctx)
 {
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 
-  ValidInstanceNum = FunctionCandidates.size();
+  ValidInstanceNum = DefCandidates.size();
 
   if (QueryInstanceOnly)
     return;
@@ -91,13 +92,13 @@ void MoveDefinitionToDeclaration::HandleTranslationUnit(ASTContext &Ctx)
     return;
   }
 
-  TheFunctionDef = FunctionCandidates[TransformationCounter-1];
-  TheFunctionDecl = TheFunctionDef->getPreviousDecl();
+  TheDef = DefCandidates[TransformationCounter-1];
+  TheDecl = TheDef->getPreviousDecl();
 
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
 
-  TransAssert(TheFunctionDecl && "NULL TheFunctionDecl!");
-  TransAssert(TheFunctionDef && "NULL TheFunctionDef!");
+  TransAssert(TheDecl && "NULL TheDecl!");
+  TransAssert(TheDef && "NULL TheDef!");
 
   doRewriting();
 
@@ -106,7 +107,8 @@ void MoveDefinitionToDeclaration::HandleTranslationUnit(ASTContext &Ctx)
     TransError = TransInternalError;
 }
 
-// Needed for backwards compatibility. Copyied from Decl::getDescribedTemplateParams.
+// Decl::getDescribedTemplateParams was introduced in LLVM 11.
+// Copied here for backwards compatibility.
 static const TemplateParameterList* getDescribedTemplateParams(Decl* D) {
   if (auto* TD = D->getDescribedTemplate())
     return TD->getTemplateParameters();
@@ -119,17 +121,17 @@ static const TemplateParameterList* getDescribedTemplateParams(Decl* D) {
 
 void MoveDefinitionToDeclaration::doRewriting(void)
 {
-  SourceRange DefRange = RewriteHelper->getDeclFullSourceRange(TheFunctionDef);
+  SourceRange DefRange = RewriteHelper->getDeclFullSourceRange(TheDef);
 
   // Remove namespace and class qualifiers
-  if (auto* DD = dyn_cast<DeclaratorDecl>(TheFunctionDef)) {
+  if (auto* DD = dyn_cast<DeclaratorDecl>(TheDef)) {
     if (auto QL = DD->getQualifierLoc()) {
       TheRewriter.RemoveText(QL.getSourceRange());
     }
   }
 
-  if (auto* MethDecl = dyn_cast<CXXMethodDecl>(TheFunctionDecl)) {
-    auto* MethDef = cast<CXXMethodDecl>(TheFunctionDef);
+  if (auto* MethDecl = dyn_cast<CXXMethodDecl>(TheDecl)) {
+    auto* MethDef = cast<CXXMethodDecl>(TheDef);
 
     // Update the template parameters name of the class if they are empty
     // This is very likely since unused parameter names gets removed during reduction
@@ -164,11 +166,11 @@ void MoveDefinitionToDeclaration::doRewriting(void)
   TheRewriter.RemoveText(DefRange);
 
   // Inside a class we need to remove the declaration
-  if (isa<CXXMethodDecl>(TheFunctionDecl)) {
-    auto DeclRange = RewriteHelper->getDeclFullSourceRange(TheFunctionDecl);
+  if (isa<CXXMethodDecl>(TheDecl)) {
+    auto DeclRange = RewriteHelper->getDeclFullSourceRange(TheDecl);
     TheRewriter.ReplaceText(DeclRange, FuncDefStr);
   } else {
-    RewriteHelper->addStringAfterDecl(TheFunctionDecl, FuncDefStr);
+    RewriteHelper->addStringAfterDecl(TheDecl, FuncDefStr);
   }
 }
 
