@@ -1,6 +1,23 @@
 import os
+import re
 import subprocess
 import unittest
+
+
+def get_llvm_version():
+    current = os.path.dirname(__file__)
+    binary = os.path.join(current, '../clang_delta')
+    output = subprocess.check_output(f'ldd {binary}', shell=True, universal_newlines=True)
+    for line in output.splitlines():
+        part = line.strip().split()[0]
+        if part.startswith('libLLVM'):
+            m = re.match(r'libLLVM-(?P<version>[0-9]+)\.so', part)
+            if m:
+                return int(m.group('version'))
+            else:
+                return int(part.split('.')[-1])
+
+    raise AssertionError()
 
 
 class TestClangDelta(unittest.TestCase):
@@ -357,7 +374,7 @@ class TestClangDelta(unittest.TestCase):
     def test_rename_class_bool(self):
         self.check_clang_delta('rename-class/bool.cc', '--transformation=rename-class --counter=1')
 
-    @unittest.skip(reason='Fails with LLVM 16')
+    @unittest.skipIf(get_llvm_version() >= 16, 'Fails with LLVM >= 16')
     def test_rename_class_class_template(self):
         self.check_clang_delta('rename-class/class_template.cc', '--transformation=rename-class --counter=1')
 
@@ -618,6 +635,7 @@ class TestClangDelta(unittest.TestCase):
     def test_merge_base_class_test1(self):
         self.check_clang_delta('merge-base-class/test1.cc', '--transformation=merge-base-class --counter=1')
 
+    @unittest.skipIf(get_llvm_version() <= 9, 'Fails with LLVM <= 9')
     def test_merge_base_class_test2(self):
         self.check_clang_delta('merge-base-class/test2.cc', '--transformation=merge-base-class --counter=1')
 

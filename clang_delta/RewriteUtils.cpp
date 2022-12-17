@@ -1904,25 +1904,12 @@ bool RewriteUtils::removeClassDecls(const CXXRecordDecl *CXXRD)
       CXXRD = CTSD->getSpecializedTemplate()->getTemplatedDecl();
   }
 
-  for (CXXRecordDecl::redecl_iterator I = CXXRD->redecls_begin(),
-      E = CXXRD->redecls_end(); I != E; ++I) {
-    SourceRange Range = (*I)->getSourceRange();
-    SourceLocation LocEnd;
-    if ((*I)->isThisDeclarationADefinition()) {
-      LocEnd = (*I)->getBraceRange().getEnd();
-      if (LocEnd.isValid())
-        LocEnd = getLocationUntil(LocEnd, ';');
-      else
-        LocEnd = getEndLocationUntil(Range, ';');
-    }
-    else {
-      LocEnd = getEndLocationUntil(Range, ';');
-    }
-    TheRewriter->RemoveText(SourceRange(Range.getBegin(), LocEnd));
-
-    if (auto* TPL = (*I)->getDescribedTemplateParams())
-      TheRewriter->RemoveText(TPL->getSourceRange());
+  for (const TagDecl* Redecl : CXXRD->redecls()) {
+    SourceRange Range = getDeclFullSourceRange(Redecl);
+    if (Range.isValid())
+      TheRewriter->RemoveText(Range);
   }
+
   return true;
 }
 
