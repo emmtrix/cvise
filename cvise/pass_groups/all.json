@@ -5,6 +5,7 @@
     {"pass": "ifs", "c": true },
     {"pass": "line_markers", "c": true },
     {"pass": "blank"},
+    {"pass": "clang", "arg": "remove-unreferenced-decl", "c": true},
     {"pass": "clangbinarysearch", "arg": "replace-function-def-with-decl", "c": true},
     {"pass": "clangbinarysearch", "arg": "remove-unused-function", "c": true },
     {"pass": "lines", "arg": "0"},

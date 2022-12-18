@@ -577,6 +577,9 @@ add_executable(clang_delta
   RemoveUnusedStructField.h
   RemoveUnusedVar.cpp
   RemoveUnusedVar.h
+  RemoveUnreferencedDecl.cpp
+  RemoveUnreferencedDecl.h
+  RemoveUnusedVar.h
   RenameCXXMethod.cpp
   RenameCXXMethod.h
   RenameClass.cpp
