@@ -81,6 +81,17 @@ void RemoveUnreferencedDecl::doRewriting(void)
   SourceRange DefRange = RewriteHelper->getDeclFullSourceRange(TheDecl);
 
   TheRewriter.RemoveText(DefRange);
+  if (ToCounter <= 0) {
+    SourceRange Range = RewriteHelper->getDeclFullSourceRange(TheDecl);
+
+    TheRewriter.RemoveText(Range);
+  } else {
+    for (int I = ToCounter; I >= TransformationCounter; --I) {
+      SourceRange Range = RewriteHelper->getDeclFullSourceRange(Candidates[I - 1]);
+
+      TheRewriter.RemoveText(Range);
+    }
+  }
 }
 
 RemoveUnreferencedDecl::~RemoveUnreferencedDecl(void)
