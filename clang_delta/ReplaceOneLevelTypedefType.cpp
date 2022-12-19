@@ -43,7 +43,8 @@ public:
   }
 
   bool VisitTemplateSpecializationTypeLoc(TemplateSpecializationTypeLoc TLoc) {
-    ConsumerInstance->handleOneTemplateSpecializationTypeLoc(TLoc);
+    if (TLoc.getTypePtr()->isTypeAlias())
+      ConsumerInstance->handleOneTemplateSpecializationTypeLoc(TLoc);
     return true;
   }
 
