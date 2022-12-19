@@ -79,7 +79,7 @@ void ReplaceOneLevelTypedefType::HandleTranslationUnit(ASTContext &Ctx)
 
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
 
-  if (TransformationCounter <= (unsigned)ValidTypedefTypes.size()) {
+  if (TransformationCounter <= (int)ValidTypedefTypes.size()) {
     auto TL = ValidTypedefTypes[TransformationCounter - 1];
     rewriteTypedefType(TL, TL.getTypedefNameDecl());
     removeTypedefs(TL.getTypedefNameDecl());
