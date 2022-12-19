@@ -681,3 +681,9 @@ class TestClangDelta(unittest.TestCase):
 
     def test_move_definition_to_declaration_var1(self):
         self.check_clang_delta('move-definition-to-declaration/var1.cc', '--transformation=move-definition-to-declaration --counter=1')
+
+    def test_replace_one_level_typedef_type_test1(self):
+        self.check_clang_delta('replace-one-level-typedef-type/test1.cc', '--transformation=replace-one-level-typedef-type --counter=1')
+
+    def test_replace_one_level_typedef_type_test2(self):
+        self.check_clang_delta('replace-one-level-typedef-type/test2.cc', '--transformation=replace-one-level-typedef-type --counter=2')

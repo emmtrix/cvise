@@ -22,47 +22,35 @@ namespace clang {
   class TypedefNameDecl;
 }
 
-class ReplaceOneLevelTypedefTypeCollectionVisitor;
-
 class ReplaceOneLevelTypedefType : public Transformation {
-friend class ReplaceOneLevelTypedefTypeCollectionVisitor;
+  class CollectionVisitor;
 
 public:
   ReplaceOneLevelTypedefType(const char *TransName, const char *Desc)
-    : Transformation(TransName, Desc),
-      CollectionVisitor(NULL)
-  {}
+      : Transformation(TransName, Desc) {}
 
   ~ReplaceOneLevelTypedefType(void);
 
 private:
-
-  typedef llvm::SmallVector<clang::TypedefTypeLoc, 10>
-    TypedefTypeLocVector;
-
-  typedef llvm::MapVector<const clang::TypedefNameDecl *, 
-                         TypedefTypeLocVector *>
-    TypedefDeclToRefMap;
 
   virtual void Initialize(clang::ASTContext &context);
 
   virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
 
   void handleOneTypedefTypeLoc(clang::TypedefTypeLoc TLoc);
+  void handleOneTemplateSpecializationTypeLoc(clang::TypeLoc TLoc);
 
   void analyzeTypeLocs();
 
-  void rewriteTypedefType();
+  void rewriteTypedefType(clang::TypedefTypeLoc TheTypeLoc, const clang::TypedefNameDecl* TheTypedefDecl);
+  void rewriteOtherType(clang::TypeLoc TL);
 
-  void removeTypedefs();
+  void removeTypedefs(const clang::TypedefNameDecl* TheTypedefDecl);
 
-  TypedefDeclToRefMap AllTypeDecls;
+  std::map<const clang::TypedefNameDecl*, std::vector<clang::TypedefTypeLoc>> AllTypeDecls;
 
-  clang::TypedefTypeLoc TheTypeLoc;
-
-  ReplaceOneLevelTypedefTypeCollectionVisitor *CollectionVisitor;
-
-  const clang::TypedefNameDecl *TheTypedefDecl;
+  std::vector<clang::TypedefTypeLoc> ValidTypedefTypes;
+  std::vector<clang::TypeLoc> ValidOtherTypes;
 
   // Unimplemented
   ReplaceOneLevelTypedefType(void);

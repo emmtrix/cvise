@@ -1,0 +1,5 @@
+
+template <class T>
+using x = T;
+
+int y;

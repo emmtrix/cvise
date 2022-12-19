@@ -30,38 +30,44 @@ the underlying type.";
 static RegisterTransformation<ReplaceOneLevelTypedefType>
          Trans("replace-one-level-typedef-type", DescriptionMsg);
 
-class ReplaceOneLevelTypedefTypeCollectionVisitor : public
-  RecursiveASTVisitor<ReplaceOneLevelTypedefTypeCollectionVisitor> {
+class ReplaceOneLevelTypedefType::CollectionVisitor
+    : public RecursiveASTVisitor<CollectionVisitor> {
 
 public:
-  explicit ReplaceOneLevelTypedefTypeCollectionVisitor(
-             ReplaceOneLevelTypedefType *Instance)
-    : ConsumerInstance(Instance)
-  { }
+  explicit CollectionVisitor(ReplaceOneLevelTypedefType *Instance)
+      : ConsumerInstance(Instance) {}
 
-  bool VisitTypedefTypeLoc(TypedefTypeLoc TLoc);
+  bool VisitTypedefTypeLoc(TypedefTypeLoc TLoc) {
+    ConsumerInstance->handleOneTypedefTypeLoc(TLoc);
+    return true;
+  }
+
+  bool VisitTemplateSpecializationTypeLoc(TemplateSpecializationTypeLoc TLoc) {
+    ConsumerInstance->handleOneTemplateSpecializationTypeLoc(TLoc);
+    return true;
+  }
+
+  bool VisitElaboratedTypeLoc(ElaboratedTypeLoc TL) {
+    if (TL.getInnerType()->getAs<TypedefType>())
+      ConsumerInstance->handleOneTemplateSpecializationTypeLoc(TL);
+    return true;
+  }
 
 private:
   ReplaceOneLevelTypedefType *ConsumerInstance;
 };
 
-bool ReplaceOneLevelTypedefTypeCollectionVisitor::VisitTypedefTypeLoc(
-       TypedefTypeLoc TLoc)
-{
-  ConsumerInstance->handleOneTypedefTypeLoc(TLoc);
-  return true;
-}
-
 void ReplaceOneLevelTypedefType::Initialize(ASTContext &context) 
 {
   Transformation::Initialize(context);
-  CollectionVisitor = new ReplaceOneLevelTypedefTypeCollectionVisitor(this);
 }
 
 void ReplaceOneLevelTypedefType::HandleTranslationUnit(ASTContext &Ctx)
 {
-  CollectionVisitor->TraverseDecl(Ctx.getTranslationUnitDecl());
+  CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
   analyzeTypeLocs();
+
+  ValidInstanceNum = ValidTypedefTypes.size() + ValidOtherTypes.size();
 
   if (QueryInstanceOnly)
     return;
@@ -72,9 +78,16 @@ void ReplaceOneLevelTypedefType::HandleTranslationUnit(ASTContext &Ctx)
   }
 
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
-  TransAssert(TheTypedefDecl && "NULL TheTypedefDecl!");
-  rewriteTypedefType();
-  removeTypedefs();
+
+  if (TransformationCounter <= ValidTypedefTypes.size()) {
+    auto TL = ValidTypedefTypes[TransformationCounter - 1];
+    rewriteTypedefType(TL, TL.getTypedefNameDecl());
+    removeTypedefs(TL.getTypedefNameDecl());
+  } else {
+    TransformationCounter -= ValidTypedefTypes.size();
+    auto TL = ValidOtherTypes[TransformationCounter - 1];
+    rewriteOtherType(TL);
+  }
 
   if (Ctx.getDiagnostics().hasErrorOccurred() ||
       Ctx.getDiagnostics().hasFatalErrorOccurred())
@@ -83,29 +96,40 @@ void ReplaceOneLevelTypedefType::HandleTranslationUnit(ASTContext &Ctx)
 
 void ReplaceOneLevelTypedefType::analyzeTypeLocs()
 {
-  for (TypedefDeclToRefMap::iterator I = AllTypeDecls.begin(),
-       E = AllTypeDecls.end(); I != E; ++I) {
-    TypedefTypeLocVector *LocVec = (*I).second;
-    if (LocVec->size() > 1)
+  for (auto& LocVec : AllTypeDecls) {
+    if (LocVec.second.size() > 1)
       continue;
-    ValidInstanceNum++;
-    if (ValidInstanceNum == TransformationCounter) {
-      TheTypedefDecl = (*I).first;
-      TheTypeLoc = LocVec->back();
-    }
+    ValidTypedefTypes.push_back(LocVec.second.back());
   }
 }
 
-void ReplaceOneLevelTypedefType::rewriteTypedefType()
+void ReplaceOneLevelTypedefType::rewriteTypedefType(clang::TypedefTypeLoc TheTypeLoc, const clang::TypedefNameDecl* TheTypedefDecl)
 {
   std::string NewTyStr;
-  TheTypedefDecl->getUnderlyingType().getAsStringInternal(NewTyStr, 
+  TheTypedefDecl->getUnderlyingType().getAsStringInternal(NewTyStr,
                                         getPrintingPolicy());
   SourceRange Range = TheTypeLoc.getSourceRange();
   TheRewriter.ReplaceText(Range, NewTyStr);
 }
 
-void ReplaceOneLevelTypedefType::removeTypedefs()
+void ReplaceOneLevelTypedefType::rewriteOtherType(clang::TypeLoc TL) {
+  if (auto TSTL = TL.getAs<TemplateSpecializationTypeLoc>()) {
+    std::string NewTyStr;
+    TSTL.getTypePtr()->getAliasedType().getAsStringInternal(
+        NewTyStr, getPrintingPolicy());
+    SourceRange Range = TSTL.getSourceRange();
+    TheRewriter.ReplaceText(Range, NewTyStr);
+  } else if (auto ETL = TL.getAs<ElaboratedTypeLoc>()) {
+    auto *TT = ETL.getInnerType()->getAs<TypedefType>();
+    std::string NewTyStr;
+    TT->getDecl()->getUnderlyingType().getAsStringInternal(NewTyStr,
+                                                           getPrintingPolicy());
+    SourceRange Range = ETL.getSourceRange();
+    TheRewriter.ReplaceText(Range, NewTyStr);
+  }
+}
+
+void ReplaceOneLevelTypedefType::removeTypedefs(const clang::TypedefNameDecl* TheTypedefDecl)
 {
   for (TypedefNameDecl::redecl_iterator I = TheTypedefDecl->redecls_begin(),
        E = TheTypedefDecl->redecls_end(); I != E; ++I) {
@@ -122,27 +146,23 @@ void ReplaceOneLevelTypedefType::handleOneTypedefTypeLoc(TypedefTypeLoc TLoc)
   if (isInIncludedFile(TLoc.getBeginLoc()))
     return;
   const TypedefType *TdefTy = TLoc.getTypePtr();
-  const TypedefNameDecl *TdefD = dyn_cast<TypedefNameDecl>(TdefTy->getDecl());
+  const TypedefNameDecl *TdefD = TdefTy->getDecl();
   if (!TdefD || TdefD->getBeginLoc().isInvalid())
     return;
   const TypedefNameDecl *CanonicalD = 
     dyn_cast<TypedefNameDecl>(TdefD->getCanonicalDecl());
 
-  TypedefTypeLocVector *LocVec = AllTypeDecls[CanonicalD];
-  if (!LocVec) {
-    LocVec = new TypedefTypeLocVector();
-    TransAssert(LocVec && "NULL LocVec!");
-    AllTypeDecls[CanonicalD] = LocVec;
-  }
-  LocVec->push_back(TLoc);
+  AllTypeDecls[CanonicalD].push_back(TLoc);
+}
+
+void ReplaceOneLevelTypedefType::handleOneTemplateSpecializationTypeLoc(clang::TypeLoc TLoc)
+{
+  if (isInIncludedFile(TLoc.getBeginLoc()))
+    return;
+
+  ValidOtherTypes.push_back(TLoc);
 }
 
 ReplaceOneLevelTypedefType::~ReplaceOneLevelTypedefType(void)
 {
-  for (TypedefDeclToRefMap::iterator I = AllTypeDecls.begin(),
-       E = AllTypeDecls.end(); I != E; ++I) {
-    delete (*I).second;
-  }
-  delete CollectionVisitor;
 }
-
