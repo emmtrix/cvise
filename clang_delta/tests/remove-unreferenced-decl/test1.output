@@ -1,0 +1,16 @@
+
+
+struct Test {
+	void f1() {
+	}
+	
+	
+};
+
+typedef Test Test2;
+
+
+
+void f3() {
+	Test2().f1();
+}

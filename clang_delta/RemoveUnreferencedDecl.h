@@ -16,13 +16,14 @@
 #include "Transformation.h"
 
 class RemoveUnreferencedDecl : public Transformation {
+  class PropagateVisitor;
   class CollectionVisitor;
 
 
 public:
 
   RemoveUnreferencedDecl(const char *TransName, const char *Desc)
-    : Transformation(TransName, Desc)
+    : Transformation(TransName, Desc, /*MultipleRewrites*/true)
   { }
 
   ~RemoveUnreferencedDecl(void);

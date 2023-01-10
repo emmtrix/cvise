@@ -28,6 +28,28 @@ static const char *DescriptionMsg =
 static RegisterTransformation<RemoveUnreferencedDecl>
          Trans("remove-unreferenced-decl", DescriptionMsg);
 
+
+class RemoveUnreferencedDecl::PropagateVisitor
+    : public RecursiveASTVisitor<PropagateVisitor> {
+  RemoveUnreferencedDecl *ConsumerInstance;
+
+public:
+  explicit PropagateVisitor(RemoveUnreferencedDecl *Instance)
+      : ConsumerInstance(Instance) {}
+
+  bool shouldVisitTemplateInstantiations() const { return true; }
+
+  bool VisitFunctionDecl(FunctionDecl *D) {
+    if (!D->isReferenced())
+      return true;
+
+    if (auto *FD2 = D->getTemplateInstantiationPattern())
+      FD2->setReferenced();
+
+    return true;
+  }
+};
+
 class RemoveUnreferencedDecl::CollectionVisitor : public RecursiveASTVisitor<CollectionVisitor> {
     RemoveUnreferencedDecl* ConsumerInstance;
 
@@ -36,7 +58,11 @@ public:
   { }
 
   bool VisitDecl(Decl* D) {
-    if (D->isReferenced())
+    if (D->isReferenced() || ConsumerInstance->Context->DeclMustBeEmitted(D))
+      return true;
+    //if (isa<RecordDecl, ClassTemplateDecl>(D))
+    //  return true;
+    if (!isa<FunctionDecl, TypedefNameDecl>(D))
       return true;
 
     auto Range = ConsumerInstance->RewriteHelper->getDeclFullSourceRange(D);
@@ -51,6 +77,8 @@ public:
 
 void RemoveUnreferencedDecl::HandleTranslationUnit(ASTContext &Ctx)
 {
+  PropagateVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
+
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 
   ValidInstanceNum = Candidates.size();
@@ -78,17 +106,17 @@ void RemoveUnreferencedDecl::HandleTranslationUnit(ASTContext &Ctx)
 
 void RemoveUnreferencedDecl::doRewriting(void)
 {
-  SourceRange DefRange = RewriteHelper->getDeclFullSourceRange(TheDecl);
-
-  TheRewriter.RemoveText(DefRange);
   if (ToCounter <= 0) {
     SourceRange Range = RewriteHelper->getDeclFullSourceRange(TheDecl);
 
     TheRewriter.RemoveText(Range);
   } else {
+    ToCounter = std::min<int>(ToCounter, Candidates.size());
     for (int I = ToCounter; I >= TransformationCounter; --I) {
       SourceRange Range = RewriteHelper->getDeclFullSourceRange(Candidates[I - 1]);
 
+      TheRewriter.getRangeSize(Range);
+      TheRewriter.getRewrittenText(Range);
       TheRewriter.RemoveText(Range);
     }
   }
