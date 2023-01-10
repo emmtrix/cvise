@@ -372,6 +372,8 @@ set(SOURCE_FILES
   "/tests/replace-one-level-typedef-type/test1.output"
   "/tests/replace-one-level-typedef-type/test2.cc"
   "/tests/replace-one-level-typedef-type/test2.output"
+  "/tests/replace-one-level-typedef-type/test3.cc"
+  "/tests/replace-one-level-typedef-type/test3.output"
   "/tests/return-void/test1.c"
   "/tests/return-void/test1.output"
   "/tests/return-void/test2.c"

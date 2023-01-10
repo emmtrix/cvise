@@ -687,3 +687,6 @@ class TestClangDelta(unittest.TestCase):
 
     def test_replace_one_level_typedef_type_test2(self):
         self.check_clang_delta('replace-one-level-typedef-type/test2.cc', '--transformation=replace-one-level-typedef-type --counter=2')
+
+    def test_replace_one_level_typedef_type_test3(self):
+        self.check_clang_delta('replace-one-level-typedef-type/test3.cc', '--transformation=replace-one-level-typedef-type --counter=2')
