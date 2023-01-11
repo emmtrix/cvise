@@ -35,7 +35,5 @@ private:
   void doRewriting(void);
 
   std::vector<clang::Decl*> Candidates;
-
-  clang::Decl* TheDecl = nullptr;
 };
 #endif

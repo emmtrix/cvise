@@ -83,19 +83,10 @@ void RemoveUnreferencedDecl::HandleTranslationUnit(ASTContext &Ctx)
 
   ValidInstanceNum = Candidates.size();
 
-  if (QueryInstanceOnly)
+  if (QueryInstanceOnly || !checkCounterValidity())
     return;
-
-  if (TransformationCounter > ValidInstanceNum) {
-    TransError = TransMaxInstanceError;
-    return;
-  }
-
-  TheDecl = Candidates[TransformationCounter-1];
 
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
-
-  TransAssert(TheDecl && "NULL TheDecl!");
 
   doRewriting();
 
@@ -107,9 +98,13 @@ void RemoveUnreferencedDecl::HandleTranslationUnit(ASTContext &Ctx)
 void RemoveUnreferencedDecl::doRewriting(void)
 {
   if (ToCounter <= 0) {
-    SourceRange Range = RewriteHelper->getDeclFullSourceRange(TheDecl);
+    if (TransformationCounter >= 1 &&
+        TransformationCounter <= ValidInstanceNum) {
+      auto *TheDecl = Candidates[TransformationCounter - 1];
+      SourceRange Range = RewriteHelper->getDeclFullSourceRange(TheDecl);
 
-    TheRewriter.RemoveText(Range);
+      TheRewriter.RemoveText(Range);
+    }
   } else {
     ToCounter = std::min<int>(ToCounter, Candidates.size());
     for (int I = ToCounter; I >= TransformationCounter; --I) {

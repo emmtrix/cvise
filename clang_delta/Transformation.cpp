@@ -97,11 +97,12 @@ void Transformation::Initialize(ASTContext &context)
 void Transformation::outputTransformedSource(llvm::raw_ostream &OutStream)
 {
   FileID MainFileID = SrcManager->getMainFileID();
-  const RewriteBuffer *RWBuf = TheRewriter.getRewriteBufferFor(MainFileID);
 
-  // RWBuf is non-empty upon any rewrites
-  TransAssert(RWBuf && "Empty RewriteBuffer!");
-  OutStream << std::string(RWBuf->begin(), RWBuf->end());
+  if (!TheRewriter.getRewriteBufferFor(MainFileID))
+    cerr << "Warning: nothing modified" << endl;
+
+  RewriteBuffer& RWBuf = TheRewriter.getEditBuffer(MainFileID);
+  OutStream << std::string(RWBuf.begin(), RWBuf.end());
   OutStream.flush();
 }
 
