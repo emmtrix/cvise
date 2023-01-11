@@ -48,6 +48,15 @@ public:
 
     return true;
   }
+
+  bool VisitTemplateSpecializationType(TemplateSpecializationType* TST) {
+    if (TemplateDecl *TD = TST->getTemplateName().getAsTemplateDecl()) {
+      TD->setReferenced();
+      TD->getTemplatedDecl()->setReferenced();
+    }
+
+    return true;
+  }
 };
 
 class RemoveUnreferencedDecl::CollectionVisitor : public RecursiveASTVisitor<CollectionVisitor> {
