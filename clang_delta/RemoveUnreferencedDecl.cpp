@@ -52,7 +52,8 @@ public:
   bool VisitTemplateSpecializationType(TemplateSpecializationType* TST) {
     if (TemplateDecl *TD = TST->getTemplateName().getAsTemplateDecl()) {
       TD->setReferenced();
-      TD->getTemplatedDecl()->setReferenced();
+      if (auto *D = TD->getTemplatedDecl())
+        D->setReferenced();
     }
 
     return true;
