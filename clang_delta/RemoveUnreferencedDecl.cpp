@@ -106,7 +106,6 @@ void RemoveUnreferencedDecl::doRewriting(void)
       TheRewriter.RemoveText(Range);
     }
   } else {
-    ToCounter = std::min<int>(ToCounter, Candidates.size());
     for (int I = ToCounter; I >= TransformationCounter; --I) {
       SourceRange Range = RewriteHelper->getDeclFullSourceRange(Candidates[I - 1]);
 

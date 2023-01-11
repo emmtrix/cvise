@@ -194,6 +194,11 @@ clang::SourceRange RewriteUtils::getDeclFullSourceRange(const clang::Decl* D)
       TemplateParameterList* TPL = T->getTemplateParameters();
       Range.setBegin(TPL->getSourceRange().getBegin());
     }
+  } else if (auto *TAD = dyn_cast<TypeAliasDecl>(D)) {
+    if (auto *T = TAD->getDescribedTemplate()) {
+      TemplateParameterList *TPL = T->getTemplateParameters();
+      Range.setBegin(TPL->getSourceRange().getBegin());
+    }
   }
 
 
