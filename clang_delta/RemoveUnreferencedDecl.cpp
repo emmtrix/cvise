@@ -33,6 +33,7 @@ class RemoveUnreferencedDecl::PropagateVisitor
     : public RecursiveASTVisitor<PropagateVisitor> {
   RemoveUnreferencedDecl *ConsumerInstance;
 
+  std::map<TypeSourceInfo*, std::vector<Decl*>> DeclGroup;
 public:
   explicit PropagateVisitor(RemoveUnreferencedDecl *Instance)
       : ConsumerInstance(Instance) {}
@@ -49,6 +50,14 @@ public:
     return true;
   }
 
+  bool VisitTypedefNameDecl(TypedefNameDecl *D) {
+    // I don't know a way to get from a instantiated typedef/using to the generic one
+    // But all share the same type source info. So we use that info for matching...
+    DeclGroup[D->getTypeSourceInfo()].push_back(D);
+
+    return true;
+  }
+
   bool VisitTemplateSpecializationType(TemplateSpecializationType* TST) {
     if (TemplateDecl *TD = TST->getTemplateName().getAsTemplateDecl()) {
       TD->setReferenced();
@@ -57,6 +66,23 @@ public:
     }
 
     return true;
+  }
+
+  void start(TranslationUnitDecl *TUD) {
+    TraverseDecl(TUD);
+
+    for (auto &Entry : DeclGroup) {
+      auto &Decls = Entry.second;
+      if (Decls.size() == 1)
+        continue;
+
+      bool Referenced = false;
+      for (auto *D : Decls)
+        Referenced |= D->isReferenced();
+      if (Referenced)
+        for (auto *D : Decls)
+          D->setReferenced();
+    }
   }
 };
 
@@ -87,7 +113,7 @@ public:
 
 void RemoveUnreferencedDecl::HandleTranslationUnit(ASTContext &Ctx)
 {
-  PropagateVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
+  PropagateVisitor(this).start(Ctx.getTranslationUnitDecl());
 
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 
