@@ -212,7 +212,7 @@ clang::SourceRange RewriteUtils::getDeclFullSourceRange(const clang::Decl* D)
   }
 
   if (HasSemicolon)
-    Range.setEnd(getEndLocationAfter(Range, ';'));
+    Range.setEnd(getLocationUntil(Range.getEnd(), ';'));
 
   return Range;
 }
