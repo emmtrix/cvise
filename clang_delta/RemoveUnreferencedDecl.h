@@ -22,9 +22,10 @@ class RemoveUnreferencedDecl : public Transformation {
 
 public:
 
-  RemoveUnreferencedDecl(const char *TransName, const char *Desc)
-    : Transformation(TransName, Desc, /*MultipleRewrites*/true)
-  { }
+  RemoveUnreferencedDecl(const char *TransName, const char *Desc,
+                         bool AllAtOnce)
+      : Transformation(TransName, Desc, /*MultipleRewrites*/ true),
+        AllAtOnce(AllAtOnce) {}
 
   ~RemoveUnreferencedDecl(void);
 
@@ -35,5 +36,6 @@ private:
   void doRewriting(void);
 
   std::vector<clang::Decl*> Candidates;
+  bool AllAtOnce;
 };
 #endif

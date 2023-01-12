@@ -26,8 +26,10 @@ using namespace std;
 static const char *DescriptionMsg =
     "Remove declarations that are unreferenced with the source code. \n";
 
-static RegisterTransformation<RemoveUnreferencedDecl>
-    Trans("remove-unreferenced-decl", DescriptionMsg);
+static RegisterTransformation<RemoveUnreferencedDecl, bool>
+    Trans("remove-unreferenced-decl", DescriptionMsg, false);
+static RegisterTransformation<RemoveUnreferencedDecl, bool>
+    TransAll("remove-unreferenced-decl-all", DescriptionMsg, true);
 
 class RemoveUnreferencedDecl::PropagateVisitor
     : public RecursiveASTVisitor<PropagateVisitor> {
@@ -180,11 +182,16 @@ void RemoveUnreferencedDecl::HandleTranslationUnit(ASTContext &Ctx) {
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 
   ValidInstanceNum = Candidates.size();
+  if (AllAtOnce && ValidInstanceNum)
+    ValidInstanceNum = 1;
 
   if (QueryInstanceOnly || !checkCounterValidity())
     return;
 
   Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
+
+  if (AllAtOnce && TransformationCounter == 1)
+    ToCounter = Candidates.size();
 
   doRewriting();
 
