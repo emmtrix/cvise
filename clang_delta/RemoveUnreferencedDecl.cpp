@@ -48,6 +48,8 @@ public:
     if (ConsumerInstance->Context->DeclMustBeEmitted(D))
       D->setReferenced();
 
+    IndexedDeclGroups[{D->getBeginLoc(), D->getEndLoc()}].insert(D);
+
     return Base::VisitDecl(D);
   }
 
@@ -64,7 +66,7 @@ public:
 
     return Base::VisitFunctionDecl(FD);
   }
-
+#if 0
   bool VisitTypedefNameDecl(TypedefNameDecl *D) {
     // I don't know a way to get from a instantiated typedef/using to the
     // generic one But all share the same source location. So we use that info
@@ -73,6 +75,7 @@ public:
 
     return Base::VisitTypedefNameDecl(D);
   }
+#endif
 
   bool VisitFunctionTemplateDecl(FunctionTemplateDecl *FTD) {
     if (auto *FTD2 = FTD->getInstantiatedFromMemberTemplate())
