@@ -31,6 +31,8 @@ static RegisterTransformation<RemoveUnreferencedDecl>
 
 class RemoveUnreferencedDecl::PropagateVisitor
     : public RecursiveASTVisitor<PropagateVisitor> {
+  using Base = RecursiveASTVisitor;
+
   RemoveUnreferencedDecl *ConsumerInstance;
 
   map<pair<SourceLocation, SourceLocation>, set<Decl *>> IndexedDeclGroups;
@@ -42,11 +44,22 @@ public:
 
   bool shouldVisitTemplateInstantiations() const { return true; }
 
+  bool VisitDecl(Decl* D) {
+    if (ConsumerInstance->Context->DeclMustBeEmitted(D))
+      D->setReferenced();
+
+    return Base::VisitDecl(D);
+  }
+
   bool VisitFunctionDecl(FunctionDecl *FD) {
     if (auto *FD2 = FD->getTemplateInstantiationPattern())
       DeclGroups.push_back({FD, FD2});
 
-    return true;
+    if (FD->isOutOfLine())
+      if (auto* FD2 = FD->getPreviousDecl())
+        DeclGroups.push_back({FD, FD2});
+
+    return Base::VisitFunctionDecl(FD);
   }
 
   bool VisitTypedefNameDecl(TypedefNameDecl *D) {
@@ -55,14 +68,14 @@ public:
     // for matching...
     IndexedDeclGroups[{D->getBeginLoc(), D->getEndLoc()}].insert(D);
 
-    return true;
+    return Base::VisitTypedefNameDecl(D);
   }
 
   bool VisitTemplateDecl(TemplateDecl *TD) {
     if (auto *D = TD->getTemplatedDecl())
       DeclGroups.push_back({TD, D});
 
-    return true;
+    return Base::VisitTemplateDecl(TD);
   }
 
   bool VisitTemplateSpecializationType(TemplateSpecializationType *TST) {
@@ -70,7 +83,7 @@ public:
       TD->setReferenced();
     }
 
-    return true;
+    return Base::VisitTemplateSpecializationType(TST);
   }
 
   bool setReferenced(Decl *D) {
@@ -129,7 +142,7 @@ public:
       : ConsumerInstance(Instance) {}
 
   bool VisitDecl(Decl *D) {
-    if (D->isReferenced() || ConsumerInstance->Context->DeclMustBeEmitted(D))
+    if (D->isReferenced())
       return true;
     // if (isa<RecordDecl, ClassTemplateDecl>(D))
     //  return true;
