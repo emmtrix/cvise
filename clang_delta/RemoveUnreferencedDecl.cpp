@@ -55,6 +55,9 @@ public:
     if (auto *FD2 = FD->getTemplateInstantiationPattern())
       DeclGroups.push_back({FD, FD2});
 
+    if (auto* FD2 = FD->getPrimaryTemplate())
+      DeclGroups.push_back({FD, FD2});
+
     if (FD->isOutOfLine())
       if (auto* FD2 = FD->getPreviousDecl())
         DeclGroups.push_back({FD, FD2});
@@ -129,7 +132,9 @@ public:
     while (propagate())
       ;
 
-    //TUD->dump();
+#ifndef NDEBUG
+    TUD->dump();
+#endif
   }
 };
 
