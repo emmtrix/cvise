@@ -74,6 +74,13 @@ public:
     return Base::VisitTypedefNameDecl(D);
   }
 
+  bool VisitFunctionTemplateDecl(FunctionTemplateDecl *FTD) {
+    if (auto *FTD2 = FTD->getInstantiatedFromMemberTemplate())
+      DeclGroups.push_back({FTD, FTD2});
+
+    return Base::VisitFunctionTemplateDecl(FTD);
+  }
+
   bool VisitTemplateDecl(TemplateDecl *TD) {
     if (auto *D = TD->getTemplatedDecl())
       DeclGroups.push_back({TD, D});
