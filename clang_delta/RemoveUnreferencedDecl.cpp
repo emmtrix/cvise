@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-// Copyright (c) 2012, 2015 The University of Utah
+// Copyright (c) 2023 Timo Stripf
 // All rights reserved.
 //
 // This file is distributed under the University of Illinois Open Source
@@ -23,6 +23,48 @@
 using namespace clang;
 using namespace std;
 
+
+void CandidateTransformation::CheckAndRemoveCandidates(std::vector<std::shared_ptr<Candidate>>& Candidates) {
+  Candidates.erase(std::remove_if(Candidates.begin(), Candidates.end(),
+                                  [this](shared_ptr<Candidate> candidate) {
+                                    return candidate->check(*this);
+                                  }),
+                   Candidates.end());
+}
+
+void CandidateTransformation::HandleTranslationUnit(ASTContext &Ctx) {
+  CollectCandidates(Ctx);
+
+  CheckAndRemoveCandidates(Candidates);
+
+  ValidInstanceNum = Candidates.size();
+
+  if (QueryInstanceOnly || !checkCounterValidity())
+    return;
+
+  Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
+
+  doRewriting();
+
+  if (Ctx.getDiagnostics().hasErrorOccurred() ||
+      Ctx.getDiagnostics().hasFatalErrorOccurred())
+    TransError = TransInternalError;
+}
+
+void CandidateTransformation::doRewriting() {
+  if (ToCounter <= 0) {
+    if (TransformationCounter >= 1 &&
+        TransformationCounter <= ValidInstanceNum) {
+
+      Candidates[TransformationCounter - 1]->apply(*this);
+    }
+  } else {
+    for (int I = ToCounter; I >= TransformationCounter; --I) {
+      Candidates[I - 1]->apply(*this);
+    }
+  }
+}
+
 static const char *DescriptionMsg =
     "Remove declarations that are unreferenced with the source code. \n";
 
@@ -30,6 +72,44 @@ static RegisterTransformation<RemoveUnreferencedDecl, bool>
     Trans("remove-unreferenced-decl", DescriptionMsg, false);
 static RegisterTransformation<RemoveUnreferencedDecl, bool>
     TransAll("remove-unreferenced-decl-all", DescriptionMsg, true);
+
+class RemoveDeclCandidate : public Candidate {
+  Decl *D;
+
+public:
+  RemoveDeclCandidate(Decl *D) : D(D) {}
+
+  virtual bool check(CandidateTransformation &Trans) override {
+    SourceRange Range = Trans.getRewriterHelper()->getDeclFullSourceRange(D);
+
+    if (Range.isInvalid() || Trans.isInIncludedFile(Range))
+      return false;
+
+    return true;
+  }
+
+  virtual void apply(CandidateTransformation& Trans) override {
+    SourceRange Range = Trans.getRewriterHelper()->getDeclFullSourceRange(D);
+
+    Trans.getRewriter().RemoveText(Range);
+  }
+};
+
+class GroupCandidate : public Candidate {
+public:
+  std::vector<std::shared_ptr<Candidate>> Candidates;
+
+  virtual bool check(CandidateTransformation &Trans) override {
+    Trans.CheckAndRemoveCandidates(Candidates);
+
+    return !Candidates.empty();
+  }
+
+  virtual void apply(CandidateTransformation &Trans) override {
+    for (auto& C : Candidates)
+      C->apply(Trans);
+  }
+};
 
 class RemoveUnreferencedDecl::PropagateVisitor
     : public RecursiveASTVisitor<PropagateVisitor> {
@@ -47,8 +127,10 @@ public:
   bool shouldVisitTemplateInstantiations() const { return true; }
 
   bool VisitDecl(Decl* D) {
-    if (ConsumerInstance->Context->DeclMustBeEmitted(D))
+    if (ConsumerInstance->Context->DeclMustBeEmitted(D)) {
       D->setReferenced();
+      D->setIsUsed();
+    }
 
     IndexedDeclGroups[{D->getBeginLoc(), D->getEndLoc()}].insert(D);
 
@@ -109,7 +191,15 @@ public:
     return true;
   }
 
-  bool propagate(set<Decl *> &Decls) {
+  bool setUsed(Decl *D) {
+    if (D->isUsed())
+      return false;
+
+    D->setIsUsed();
+    return true;
+  }
+
+  bool propagateReferenced(set<Decl *> &Decls) {
     if (Decls.size() == 1)
       return false;
 
@@ -127,13 +217,31 @@ public:
     return Changed;
   }
 
+  bool propagateUsed(set<Decl *> &Decls) {
+    if (Decls.size() == 1)
+      return false;
+
+    bool Used = false;
+    for (auto *D : Decls)
+      Used |= D->isUsed();
+    if (!Used)
+      return false;
+
+    bool Changed = false;
+
+    for (auto *D : Decls)
+      Changed |= setUsed(D);
+
+    return Changed;
+  }
+
   bool propagate() {
     bool Changed = false;
 
     for (auto &Entry : IndexedDeclGroups)
-      Changed |= propagate(Entry.second);
+      Changed |= propagateReferenced(Entry.second);
     for (auto &Decls : DeclGroups)
-      Changed |= propagate(Decls);
+      Changed |= propagateReferenced(Decls);
 
     return Changed;
   }
@@ -159,68 +267,23 @@ public:
       : ConsumerInstance(Instance) {}
 
   bool VisitDecl(Decl *D) {
-    if (D->isReferenced())
-      return true;
-    // if (isa<RecordDecl, ClassTemplateDecl>(D))
-    //  return true;
-    if (!isa<FunctionDecl, TypedefNameDecl>(D))
-      return true;
-
-    auto Range = ConsumerInstance->RewriteHelper->getDeclFullSourceRange(D);
-    if (Range.isInvalid() || ConsumerInstance->isInIncludedFile(Range))
-      return true;
-
-    ConsumerInstance->Candidates.push_back(D);
+    if (!D->isReferenced() && isa<FunctionDecl, TypedefNameDecl>(D)) {
+      ConsumerInstance->Candidates.push_back(
+          make_shared<RemoveDeclCandidate>(D));
+    }
 
     return true;
   }
 };
 
-void RemoveUnreferencedDecl::HandleTranslationUnit(ASTContext &Ctx) {
+void RemoveUnreferencedDecl::CollectCandidates(ASTContext &Ctx) {
   PropagateVisitor(this).start(Ctx.getTranslationUnitDecl());
 
   CollectionVisitor(this).TraverseDecl(Ctx.getTranslationUnitDecl());
 
-  ValidInstanceNum = Candidates.size();
-  if (AllAtOnce && ValidInstanceNum)
-    ValidInstanceNum = 1;
-
-  if (QueryInstanceOnly || !checkCounterValidity())
-    return;
-
-  Ctx.getDiagnostics().setSuppressAllDiagnostics(false);
-
-  if (AllAtOnce && TransformationCounter == 1)
-    ToCounter = Candidates.size();
-
-  doRewriting();
-
-  if (Ctx.getDiagnostics().hasErrorOccurred() ||
-      Ctx.getDiagnostics().hasFatalErrorOccurred())
-    TransError = TransInternalError;
-}
-
-void RemoveUnreferencedDecl::doRewriting(void) {
-  if (ToCounter <= 0) {
-    if (TransformationCounter >= 1 &&
-        TransformationCounter <= ValidInstanceNum) {
-      auto *TheDecl = Candidates[TransformationCounter - 1];
-      SourceRange Range = RewriteHelper->getDeclFullSourceRange(TheDecl);
-
-      TheRewriter.RemoveText(Range);
-    }
-  } else {
-    for (int I = ToCounter; I >= TransformationCounter; --I) {
-      SourceRange Range =
-          RewriteHelper->getDeclFullSourceRange(Candidates[I - 1]);
-
-      TheRewriter.getRangeSize(Range);
-      TheRewriter.getRewrittenText(Range);
-      TheRewriter.RemoveText(Range);
-    }
+  if (AllAtOnce) {
+    auto GC = make_shared<GroupCandidate>();
+    GC->Candidates = Candidates;
+    Candidates = { GC };
   }
-}
-
-RemoveUnreferencedDecl::~RemoveUnreferencedDecl(void) {
-  // Nothing to do
 }

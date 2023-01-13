@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-// Copyright (c) 2012 The University of Utah
+// Copyright (c) 2023 Timo Stripf
 // All rights reserved.
 //
 // This file is distributed under the University of Illinois Open Source
@@ -15,27 +15,51 @@
 #include "llvm/ADT/DenseMap.h"
 #include "Transformation.h"
 
-class RemoveUnreferencedDecl : public Transformation {
+class Candidate;
+
+class CandidateTransformation : public Transformation {
+protected:
+  std::vector<std::shared_ptr<Candidate>> Candidates;
+
+  virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
+
+  void doRewriting();
+
+public:
+  CandidateTransformation(const char *TransName, const char *Desc,
+                          bool MultipleRewritesFlag = false)
+      : Transformation(TransName, Desc, MultipleRewritesFlag) {}
+
+  RewriteUtils *getRewriterHelper() { return RewriteHelper; }
+  clang::Rewriter& getRewriter() { return TheRewriter; }
+
+  void
+  CheckAndRemoveCandidates(std::vector<std::shared_ptr<Candidate>> &Candidates);
+
+  virtual void CollectCandidates(clang::ASTContext& Ctx) = 0;
+};
+
+
+class Candidate {
+public:
+  virtual bool check(CandidateTransformation& Trans) = 0;
+  virtual void apply(CandidateTransformation& Trans) = 0;
+};
+
+class RemoveUnreferencedDecl : public CandidateTransformation {
   class PropagateVisitor;
   class CollectionVisitor;
-
 
 public:
 
   RemoveUnreferencedDecl(const char *TransName, const char *Desc,
                          bool AllAtOnce)
-      : Transformation(TransName, Desc, /*MultipleRewrites*/ true),
+      : CandidateTransformation(TransName, Desc, /*MultipleRewrites*/ true),
         AllAtOnce(AllAtOnce) {}
 
-  ~RemoveUnreferencedDecl(void);
-
 private:
+  virtual void CollectCandidates(clang::ASTContext &Ctx) override;
 
-  virtual void HandleTranslationUnit(clang::ASTContext &Ctx);
-
-  void doRewriting(void);
-
-  std::vector<clang::Decl*> Candidates;
   bool AllAtOnce;
 };
 #endif

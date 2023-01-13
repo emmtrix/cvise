@@ -71,30 +71,9 @@ friend class clang_delta_common_visitor::CommonRenameClassRewriteVisitor;
 
 public:
 
-  Transformation(const char *TransName, const char *Desc)
-    : Name(TransName),
-      TransformationCounter(-1),
-      ValidInstanceNum(0),
-      QueryInstanceOnly(false),
-      Context(NULL),
-      SrcManager(NULL),
-      TransError(TransSuccess),
-      DescriptionString(Desc),
-      RewriteHelper(NULL),
-      Rewritten(false),
-      MultipleRewrites(false),
-      ToCounter(-1),
-      DoReplacement(false),
-      DoPreserveRoutine(false),
-      CheckReference(false),
-      WarnOnCounterOutOfBounds(false)
-  {
-    // Nothing to do
-  }
-
   Transformation(const char *TransName, 
                  const char *Desc, 
-                 bool MultipleRewritesFlag)
+                 bool MultipleRewritesFlag = false)
     : Name(TransName),
       TransformationCounter(-1),
       ValidInstanceNum(0),
@@ -194,7 +173,7 @@ public:
     return false;
   }
 
-protected:
+public:
 
   typedef llvm::SmallVector<unsigned int, 10> IndexVector;
 
@@ -315,8 +294,9 @@ protected:
 
   bool isInIncludedFile(clang::SourceLocation Loc) const;
 
-  bool isInIncludedFile(const clang::SourceRange& Range) const {
-    return isInIncludedFile(Range.getBegin()) ||isInIncludedFile(Range.getEnd());
+  bool isInIncludedFile(const clang::SourceRange &Range) const {
+    return isInIncludedFile(Range.getBegin()) ||
+           isInIncludedFile(Range.getEnd());
   }
 
   bool isInIncludedFile(const clang::Decl *D) const;
@@ -332,6 +312,7 @@ protected:
   clang::SourceLocation getRealLocation(const clang::SourceLocation& Loc) const;
   clang::SourceRange getRealLocation(const clang::SourceRange& Range) const;
 
+protected:
   const std::string Name;
 
   int TransformationCounter;
