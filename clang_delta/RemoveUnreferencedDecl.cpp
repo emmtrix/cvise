@@ -194,6 +194,13 @@ public:
     return Base::VisitUsingDecl(UD);
   }
 
+  bool VisitUnresolvedLookupExpr(UnresolvedLookupExpr *ULE) {
+    for (Decl* D : ULE->decls())
+      D->setReferenced();
+
+    return Base::VisitUnresolvedLookupExpr(ULE);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
