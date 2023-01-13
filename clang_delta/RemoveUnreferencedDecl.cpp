@@ -183,6 +183,17 @@ public:
     return Base::VisitTemplateSpecializationType(TST);
   }
 
+  bool VisitUsingDecl(UsingDecl *UD) {
+    set<Decl *> Decls{UD};
+    for (UsingShadowDecl *S : UD->shadows()) {
+      Decls.insert(S);
+      Decls.insert(S->getTargetDecl());
+    }
+    DeclGroups.push_back(Decls);
+
+    return Base::VisitUsingDecl(UD);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
@@ -267,7 +278,7 @@ public:
       : ConsumerInstance(Instance) {}
 
   bool VisitDecl(Decl *D) {
-    if (!D->isReferenced() && isa<FunctionDecl, TypedefNameDecl>(D)) {
+    if (!D->isReferenced() && isa<FunctionDecl, TypedefNameDecl, UsingDecl>(D)) {
       ConsumerInstance->Candidates.push_back(
           make_shared<RemoveDeclCandidate>(D));
     }
