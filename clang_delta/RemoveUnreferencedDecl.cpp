@@ -27,7 +27,7 @@ using namespace std;
 void CandidateTransformation::CheckAndRemoveCandidates(std::vector<std::shared_ptr<Candidate>>& Candidates) {
   Candidates.erase(std::remove_if(Candidates.begin(), Candidates.end(),
                                   [this](shared_ptr<Candidate> candidate) {
-                                    return candidate->check(*this);
+                                    return !candidate->check(*this);
                                   }),
                    Candidates.end());
 }
