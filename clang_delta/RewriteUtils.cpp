@@ -201,6 +201,10 @@ clang::SourceRange RewriteUtils::getDeclFullSourceRange(const clang::Decl* D)
     }
   }
 
+  // extern "C" / "C++"
+  if (auto* LSD = dyn_cast<LinkageSpecDecl>(D->getLexicalDeclContext()))
+      if (!LSD->hasBraces())
+          Range.setBegin(LSD->getBeginLoc());
 
   // Include the semicolon into the declaration. 
   // See DeclPrinter::VisitDeclContext in clang source code for all cases.
