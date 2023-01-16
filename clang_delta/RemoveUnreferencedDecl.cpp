@@ -119,6 +119,7 @@ class RemoveUnreferencedDecl::PropagateVisitor
 
   map<pair<SourceLocation, SourceLocation>, set<Decl *>> IndexedDeclGroups;
   vector<set<Decl *>> DeclGroups;
+  map<const IdentifierInfo*, set<Decl*>> DTSTCandidates;
 
 public:
   explicit PropagateVisitor(RemoveUnreferencedDecl *Instance)
@@ -175,12 +176,26 @@ public:
     return Base::VisitTemplateDecl(TD);
   }
 
+  bool VisitTypeAliasTemplateDecl(TypeAliasTemplateDecl *TATD) {
+    DTSTCandidates[TATD->getTemplatedDecl()->getIdentifier()].insert(TATD);
+
+    return Base::VisitTypeAliasTemplateDecl(TATD);
+  }
+
   bool VisitTemplateSpecializationType(TemplateSpecializationType *TST) {
     if (TemplateDecl *TD = TST->getTemplateName().getAsTemplateDecl()) {
       TD->setReferenced();
     }
 
     return Base::VisitTemplateSpecializationType(TST);
+  }
+
+  bool VisitDependentTemplateSpecializationType(
+      DependentTemplateSpecializationType *DTST) {
+    for (auto *D : DTSTCandidates[DTST->getIdentifier()])
+      D->setReferenced();
+
+    return Base::VisitDependentTemplateSpecializationType(DTST);
   }
 
   bool VisitUsingDecl(UsingDecl *UD) {
