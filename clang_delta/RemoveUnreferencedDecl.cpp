@@ -88,8 +88,22 @@ public:
     return true;
   }
 
+  bool isAlreadyRemoved(CandidateTransformation& Trans, SourceLocation Loc) {
+    auto& SrcMgr = Trans.getRewriter().getSourceMgr();
+    auto DL = Trans.getRewriter().getSourceMgr().getDecomposedLoc(Loc);
+
+    SourceLocation LocBegin = Loc.getLocWithOffset(-DL.second);
+
+    // Puuh, I found no method in clang::Rewriter to check if text is already removed
+    // Checking the range size from the beginning of the file returns a negative number if one location is already deleted
+    return Trans.getRewriter().getRangeSize({ LocBegin, Loc }) < 0;
+  }
+
   virtual void apply(CandidateTransformation& Trans) override {
     SourceRange Range = Trans.getRewriterHelper()->getDeclFullSourceRange(D);
+    if (isAlreadyRemoved(Trans, Range.getBegin()) ||
+        isAlreadyRemoved(Trans, Range.getEnd()))
+      return;
 
     Trans.getRewriter().RemoveText(Range);
   }
@@ -120,6 +134,7 @@ class RemoveUnreferencedDecl::PropagateVisitor
   map<pair<SourceLocation, SourceLocation>, set<Decl *>> IndexedDeclGroups;
   vector<set<Decl *>> DeclGroups;
   map<const IdentifierInfo*, set<Decl*>> DTSTCandidates;
+  map<Decl*, set<Decl*>> Parents;
 
 public:
   explicit PropagateVisitor(RemoveUnreferencedDecl *Instance)
@@ -134,6 +149,11 @@ public:
     }
 
     IndexedDeclGroups[{D->getBeginLoc(), D->getEndLoc()}].insert(D);
+
+    if (auto* P = dyn_cast_or_null<Decl>(D->getDeclContext()))
+      Parents[D].insert(D);
+    if (auto *P = dyn_cast_or_null<Decl>(D->getLexicalDeclContext()))
+      Parents[D].insert(D);
 
     return Base::VisitDecl(D);
   }
@@ -224,12 +244,32 @@ public:
     return true;
   }
 
+  bool setReferenced(set<Decl *> &Decls, bool Val = true) {
+    bool Changed = false;
+
+    if (Val)
+      for (auto *D : Decls)
+        Changed |= setReferenced(D);
+
+    return Changed;
+  }
+
   bool setUsed(Decl *D) {
     if (D->isUsed())
       return false;
 
     D->setIsUsed();
     return true;
+  }
+
+  bool setUsed(set<Decl *> &Decls, bool Val = true) {
+    bool Changed = false;
+
+    if (Val)
+      for (auto *D : Decls)
+        Changed |= setUsed(D);
+
+    return Changed;
   }
 
   bool propagateReferenced(set<Decl *> &Decls) {
@@ -239,15 +279,8 @@ public:
     bool Referenced = false;
     for (auto *D : Decls)
       Referenced |= D->isReferenced();
-    if (!Referenced)
-      return false;
 
-    bool Changed = false;
-
-    for (auto *D : Decls)
-      Changed |= setReferenced(D);
-
-    return Changed;
+    return setReferenced(Decls, Referenced);
   }
 
   bool propagateUsed(set<Decl *> &Decls) {
@@ -257,24 +290,26 @@ public:
     bool Used = false;
     for (auto *D : Decls)
       Used |= D->isUsed();
-    if (!Used)
-      return false;
 
-    bool Changed = false;
-
-    for (auto *D : Decls)
-      Changed |= setUsed(D);
-
-    return Changed;
+    return setUsed(Decls, Used);
   }
 
   bool propagate() {
     bool Changed = false;
 
-    for (auto &Entry : IndexedDeclGroups)
+    for (auto& Entry : IndexedDeclGroups) {
       Changed |= propagateReferenced(Entry.second);
-    for (auto &Decls : DeclGroups)
+      Changed |= propagateUsed(Entry.second);
+    }
+    for (auto& Decls : DeclGroups) {
       Changed |= propagateReferenced(Decls);
+      Changed |= propagateUsed(Decls);
+    }
+
+    for (auto& Entry : Parents) {
+      Changed |= setReferenced(Entry.second, Entry.first->isReferenced());
+      Changed |= setUsed(Entry.second, Entry.first->isUsed());
+    }
 
     return Changed;
   }
@@ -300,7 +335,7 @@ public:
       : ConsumerInstance(Instance) {}
 
   bool VisitDecl(Decl *D) {
-    if (!D->isReferenced() && isa<FunctionDecl, TypedefNameDecl, UsingDecl>(D)) {
+    if (!D->isReferenced() && isa<FunctionDecl, TypedefNameDecl, UsingDecl, RecordDecl>(D)) {
       ConsumerInstance->Candidates.push_back(
           make_shared<RemoveDeclCandidate>(D));
     }
