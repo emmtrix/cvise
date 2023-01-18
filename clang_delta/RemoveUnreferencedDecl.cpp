@@ -89,7 +89,6 @@ public:
   }
 
   bool isAlreadyRemoved(CandidateTransformation& Trans, SourceLocation Loc) {
-    auto& SrcMgr = Trans.getRewriter().getSourceMgr();
     auto DL = Trans.getRewriter().getSourceMgr().getDecomposedLoc(Loc);
 
     SourceLocation LocBegin = Loc.getLocWithOffset(-DL.second);

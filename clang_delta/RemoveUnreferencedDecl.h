@@ -41,11 +41,7 @@ public:
 
 
 class Candidate {
-  bool isEnable = false;
 public:
-  bool isEnabled() const { return isEnable; }
-  bool enable(bool val) { isEnable = val; }
-
   virtual bool check(CandidateTransformation& Trans) = 0;
   virtual void apply(CandidateTransformation& Trans) = 0;
 };
