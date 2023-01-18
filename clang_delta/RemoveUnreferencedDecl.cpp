@@ -150,9 +150,9 @@ public:
     IndexedDeclGroups[{D->getBeginLoc(), D->getEndLoc()}].insert(D);
 
     if (auto* P = dyn_cast_or_null<Decl>(D->getDeclContext()))
-      Parents[D].insert(D);
+      Parents[D].insert(P);
     if (auto *P = dyn_cast_or_null<Decl>(D->getLexicalDeclContext()))
-      Parents[D].insert(D);
+      Parents[D].insert(P);
 
     return Base::VisitDecl(D);
   }
