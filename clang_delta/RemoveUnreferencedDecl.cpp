@@ -140,6 +140,7 @@ public:
       : ConsumerInstance(Instance) {}
 
   bool shouldVisitTemplateInstantiations() const { return true; }
+  bool shouldVisitImplicitCode() const { return true; }
 
   bool VisitDecl(Decl* D) {
     if (ConsumerInstance->Context->DeclMustBeEmitted(D)) {
