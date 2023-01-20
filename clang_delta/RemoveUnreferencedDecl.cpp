@@ -236,6 +236,15 @@ public:
     return Base::VisitUnresolvedLookupExpr(ULE);
   }
 
+  bool TraverseTemplateName(TemplateName TN) {
+    //TN.getKind();
+
+    if (auto* TD = TN.getAsTemplateDecl())
+      TD->setReferenced();
+
+    return Base::TraverseTemplateName(TN);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
