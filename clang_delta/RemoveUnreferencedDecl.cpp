@@ -245,6 +245,12 @@ public:
     return Base::TraverseTemplateName(TN);
   }
 
+  bool VisitRecordType(RecordType* RT) {
+    RT->getDecl()->setReferenced();
+
+    return Base::VisitRecordType(RT);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
