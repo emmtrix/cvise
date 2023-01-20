@@ -266,6 +266,46 @@ public:
     return Base::VisitOverloadExpr(OE);
   }
 
+  void getVirtualMethodsRecursive(CXXRecordDecl *RD,
+                                  vector<CXXMethodDecl *> &Methods) {
+    for (CXXBaseSpecifier &BS : RD->bases()) {
+      auto *BaseRD = BS.getType()->getAsCXXRecordDecl();
+      getVirtualMethodsRecursive(BaseRD, Methods);
+    }
+
+    for (auto *M : RD->methods()) {
+      if (M->isVirtual())
+        Methods.push_back(M);
+    }
+  }
+
+  // We cannot remove all virtual methods, otherwise the class would be not
+  // dynamic anymore Search for the first virtual method and mark it as
+  // referenced
+  void requireDynamicClass(CXXRecordDecl *RD) {
+    vector<CXXMethodDecl *> Methods;
+
+    getVirtualMethodsRecursive(RD, Methods);
+
+    for (auto *M : Methods)
+      if (M->isReferenced())
+        return;
+
+    if (!Methods.empty())
+      Methods[0]->setReferenced();
+  }
+
+  bool VisitCXXDynamicCastExpr(CXXDynamicCastExpr *DCE) {
+    auto Ty = DCE->getSubExpr()->getType();
+    if (Ty->isPointerType())
+      Ty = Ty->getPointeeType();
+
+    if (auto *RD = Ty->getAsCXXRecordDecl())
+      requireDynamicClass(RD);
+
+    return Base::VisitCXXDynamicCastExpr(DCE);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
