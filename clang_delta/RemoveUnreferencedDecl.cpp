@@ -251,6 +251,14 @@ public:
     return Base::VisitRecordType(RT);
   }
 
+  bool
+  VisitClassTemplateSpecializationDecl(ClassTemplateSpecializationDecl *CTSD) {
+    if (CTSD->getSpecializationKind() == TSK_ExplicitSpecialization)
+      CTSD->getSpecializedTemplate()->setReferenced();
+
+    return Base::VisitClassTemplateSpecializationDecl(CTSD);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
