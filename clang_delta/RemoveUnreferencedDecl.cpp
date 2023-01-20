@@ -259,6 +259,13 @@ public:
     return Base::VisitClassTemplateSpecializationDecl(CTSD);
   }
 
+  bool VisitOverloadExpr(OverloadExpr *OE) {
+    for (auto *D : OE->decls())
+      D->setReferenced();
+
+    return Base::VisitOverloadExpr(OE);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
