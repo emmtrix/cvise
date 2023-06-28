@@ -306,6 +306,12 @@ public:
     return Base::VisitCXXDynamicCastExpr(DCE);
   }
 
+  bool VisitExpr(Expr *E) { 
+      TraverseType(E->getType());
+
+      return Base::VisitExpr(E);
+  }
+
   bool setReferenced(Decl *D) {
     if (D->isReferenced())
       return false;
