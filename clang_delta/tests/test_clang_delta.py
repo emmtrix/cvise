@@ -690,3 +690,7 @@ class TestClangDelta(unittest.TestCase):
 
     def test_replace_one_level_typedef_type_test3(self):
         self.check_clang_delta('replace-one-level-typedef-type/test3.cc', '--transformation=replace-one-level-typedef-type --counter=2')
+
+
+    def test_remove_unreferenced_decl_classfunc1(self):
+        self.check_clang_delta('remove-unreferenced-decl/classfunc1.cc', '--transformation=remove-unreferenced-decl-all --counter=1 --to-counter=1000 --warn-on-counter-out-of-bounds')
