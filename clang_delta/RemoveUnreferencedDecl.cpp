@@ -171,6 +171,22 @@ public:
 
     return Base::VisitFunctionDecl(FD);
   }
+
+  bool VisitCXXMethodDecl(CXXMethodDecl *MD) {
+    // A method marked with override needs a virtual method in a base class to
+    // avoid a compiler error
+    if (MD->hasAttr<OverrideAttr>()) {
+      for (auto *MD2 : MD->overridden_methods()) {
+        if (MD2->isVirtualAsWritten()) {
+          Parents[MD].insert(const_cast<CXXMethodDecl *>(MD2));
+          break;
+        }
+      }
+    }
+
+    return Base::VisitCXXMethodDecl(MD);
+  }
+
 #if 0
   bool VisitTypedefNameDecl(TypedefNameDecl *D) {
     // I don't know a way to get from a instantiated typedef/using to the
