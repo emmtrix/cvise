@@ -1,6 +1,6 @@
 struct a1 {
   int x;
-  virtual void f();
+  
 };
 struct a2 {
   int y;

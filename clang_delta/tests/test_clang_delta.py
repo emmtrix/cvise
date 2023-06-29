@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import unittest
+import glob
 
 
 def get_llvm_version():
@@ -16,7 +17,7 @@ def get_llvm_version():
                 return int(m.group('version'))
             else:
                 return int(part.split('.')[-1])
-
+    return 13
     raise AssertionError()
 
 
@@ -692,5 +693,9 @@ class TestClangDelta(unittest.TestCase):
         self.check_clang_delta('replace-one-level-typedef-type/test3.cc', '--transformation=replace-one-level-typedef-type --counter=2')
 
 
-    def test_remove_unreferenced_decl_classfunc1(self):
-        self.check_clang_delta('remove-unreferenced-decl/classfunc1.cc', '--transformation=remove-unreferenced-decl-all --counter=1 --to-counter=1000 --warn-on-counter-out-of-bounds')
+    def test_remove_unreferenced_decl(self):
+        cc_files = glob.glob('remove-unreferenced-decl/*.cc')
+
+        for input_file in cc_files:
+            with self.subTest(msg=input_file,input_file=input_file):
+                self.check_clang_delta(input_file, '--transformation=remove-unreferenced-decl-all --counter=1 --to-counter=1000 --warn-on-counter-out-of-bounds')
