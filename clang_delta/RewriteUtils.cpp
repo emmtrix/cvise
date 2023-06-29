@@ -979,7 +979,7 @@ bool RewriteUtils::addStringAfterDecl(const Decl *D, const std::string &Str)
 {
   SourceRange Range = getDeclFullSourceRange(D);
   
-  return !(TheRewriter->InsertText(Range.getEnd(), "\n" + Str));
+  return !(TheRewriter->InsertTextAfterToken(Range.getEnd(), "\n" + Str));
 }
 
 // This function is an experimental one. It doesn't work

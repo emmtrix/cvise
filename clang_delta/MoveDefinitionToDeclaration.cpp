@@ -37,7 +37,7 @@ public:
   explicit CollectionVisitor(MoveDefinitionToDeclaration* Instance) : ConsumerInstance(Instance)
   { }
 
-  void CheckAndAddCondidate(Decl* Def) {
+  void CheckAndAddCandidate(Decl* Def) {
     auto* Decl = Def->getPreviousDecl();
     if (Decl == nullptr || Def == Decl)
       return;
@@ -56,21 +56,21 @@ public:
 
   bool VisitFunctionDecl(FunctionDecl* FD) {
     if (FD->isThisDeclarationADefinition())
-      CheckAndAddCondidate(FD);
+      CheckAndAddCandidate(FD);
 
     return true;
   }
 
   bool VisitVarDecl(VarDecl* VD) {
     if (VD->isThisDeclarationADefinition())
-      CheckAndAddCondidate(VD);
+      CheckAndAddCandidate(VD);
 
     return true;
   }
 
   bool VisitTagDecl(TagDecl* VD) {
     if (VD->isThisDeclarationADefinition())
-      CheckAndAddCondidate(VD);
+      CheckAndAddCandidate(VD);
 
     return true;
   }
