@@ -47,7 +47,11 @@ public:
     if (DefRange.isInvalid() || DeclRange.isInvalid() || ConsumerInstance->isInIncludedFile(DefRange) || ConsumerInstance->isInIncludedFile(DeclRange))
       return;
 
-    auto Text = ConsumerInstance->TheRewriter.getRewrittenText({ DeclRange.getEnd(), DefRange.getBegin().getLocWithOffset(-1) });
+    auto Text = ConsumerInstance->TheRewriter.getRewrittenText(
+        {ConsumerInstance->RewriteHelper->getLocationOfNextToken(
+             DeclRange.getEnd()),
+         DefRange.getBegin().getLocWithOffset(-1)});
+
     if (std::all_of(Text.begin(), Text.end(), isspace))
       return;
 

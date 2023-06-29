@@ -194,6 +194,8 @@ public:
   clang::SourceLocation getLocationAfter(clang::SourceLocation Loc,
                                          char Symbol);
 
+  clang::SourceLocation getLocationOfNextToken(clang::SourceLocation Loc);
+
   bool removeArraySubscriptExpr(const clang::Expr *E);
 
   bool getFunctionDefStrAndRemove(const clang::FunctionDecl *FD,

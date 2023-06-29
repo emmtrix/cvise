@@ -24,6 +24,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/TypeLoc.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/Lex/Lexer.h"
 
 using namespace clang;
 
@@ -228,6 +229,16 @@ SourceLocation RewriteUtils::getLocationAfter(SourceLocation Loc,
   int Offset = getOffsetUntil(Buf, Symbol);
   Offset++;
   return Loc.getLocWithOffset(Offset);
+}
+
+clang::SourceLocation
+RewriteUtils::getLocationOfNextToken(clang::SourceLocation Loc) {
+  // Calculate offset based on the length of the current token
+  unsigned TokenLength =
+      Lexer::MeasureTokenLength(Loc, *SrcManager, LangOptions());
+
+  // Retrieve source location after the current token
+  return Loc.getLocWithOffset(TokenLength);
 }
 
 SourceLocation RewriteUtils::getLocationAfterSkiping(SourceLocation StartLoc, 
