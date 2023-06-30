@@ -18,7 +18,7 @@ class BinaryState:
         pass
 
     def __repr__(self):
-        return 'BinaryState: %d-%d of %d instances' % (self.index, self.end(), self.instances)
+        return f'BinaryState({self.index}-{self.end()}, {self.instances} instances, step: {self.chunk})'
 
     @staticmethod
     def create(instances):
@@ -41,7 +41,6 @@ class BinaryState:
 
     def advance(self):
         self = self.copy()
-        original_index = self.index
         self.index += self.chunk
         if self.index >= self.instances:
             self.chunk = int(self.chunk / 2)
@@ -50,7 +49,7 @@ class BinaryState:
             logging.debug(f'granularity reduced to {self.chunk}')
             self.index = 0
         else:
-            logging.debug(f'***ADVANCE*** from {original_index} to {self.index} with chunk {self.chunk}')
+            logging.debug(f'***ADVANCE*** to {self}')
         return self
 
     def advance_on_success(self, instances):
@@ -75,9 +74,13 @@ class AbstractPass:
 
     def __repr__(self):
         if self.arg is not None:
-            return f'{type(self).__name__}::{self.arg}'
+            name = f'{type(self).__name__}::{self.arg}'
         else:
-            return f'{type(self).__name__}'
+            name = f'{type(self).__name__}'
+
+        if self.max_transforms is not None:
+            name += f' ({self.max_transforms} T)'
+        return name
 
     def check_external_program(self, name):
         program = self.external_programs[name]

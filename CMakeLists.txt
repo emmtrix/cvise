@@ -8,7 +8,7 @@
 
 ###############################################################################
 
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.3)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -22,7 +22,7 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   message(FATAL_ERROR "CMAKE_SOURCE_DIR should be different from PROJECT_BINARY_DIR")
 endif()
 
-###############################################################################
+##############################################################################
 
 # Locate LLVM and check its version.  Do this here because we need the LLVM
 # package definitions in the "CMakeLists.txt" files for multiple subdirs.
@@ -122,11 +122,11 @@ check_include_file("unistd.h"		HAVE_UNISTD_H)
 set(cvise_PACKAGE             "cvise")
 set(cvise_PACKAGE_BUGREPORT   "https://github.com/marxin/cvise/issues")
 set(cvise_PACKAGE_NAME        "cvise")
-set(cvise_PACKAGE_STRING      "cvise 2.6.0")
+set(cvise_PACKAGE_STRING      "cvise 2.8.0")
 set(cvise_PACKAGE_TARNAME     "cvise")
 set(cvise_PACKAGE_URL         "https://github.com/marxin/cvise/")
-set(cvise_PACKAGE_VERSION     "2.6.0")
-set(cvise_VERSION             "2.6.0")
+set(cvise_PACKAGE_VERSION     "2.8.0")
+set(cvise_VERSION             "2.8.0")
 set(cvise_LLVM_VERSION        "${LLVM_PACKAGE_VERSION}")
 
 configure_file("cmake_config.h.in" "${PROJECT_BINARY_DIR}/config.h")
@@ -143,25 +143,45 @@ check_cxx_compiler_flag(
 )
 
 check_cxx_compiler_flag(
-  "-Wno-error=mismatched-new-delete"
+  "-Wmismatched-new-delete"
   SUPPORTS_WMISMATCHED_NEW_DELETE
+)
+
+check_cxx_compiler_flag(
+  "-Wmaybe-uninitialized"
+  SUPPORTS_MAYBE_UNINITIALIZED
+)
+
+# XXX remove in the future once LLVM 17 gets released 
+check_cxx_compiler_flag(
+  "-Wclass-memaccess"
+  SUPPORTS_CLASS_MEMACCESS
 )
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # XXX figure out how to get "-std=c++17 -fno-rtti" from LLVM.  That's how we
   # get those options in the Automake path...
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -Wno-error=maybe-uninitialized")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-rtti -fno-strict-aliasing -Wall -Wextra -Wno-unused-parameter -Werror -Wno-error=maybe-uninitialized")
+  set(COMMON_FLAGS "-Wall -Wextra -Werror -pedantic -Wno-unused-parameter")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS} -std=c++17 -fno-rtti -fno-strict-aliasing")
   if(SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility-inlines-hidden")
   endif()
   if(SUPPORTS_WMISMATCHED_NEW_DELETE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=mismatched-new-delete")
   endif()
+  if(SUPPORTS_MAYBE_UNINITIALIZED)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=maybe-uninitialized")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=maybe-uninitialized")
+  endif()
+  if(SUPPORTS_CLASS_MEMACCESS)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=class-memaccess")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=class-memaccess")
+  endif()
 
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELEASE} -O3 -g")
 endif()
 
 ###############################################################################
